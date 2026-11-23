@@ -1,36 +1,30 @@
-# EdgeOne Pages 函数: KV 存储
+# EO Vercount — EdgeOne KV 轻量级网站访问量统计
 
-此示例演示如何使用 EdgeOne Pages 函数从 KV 存储中存储和检索数据。
+基于 **腾讯云 EdgeOne Pages (Makers)** 的单管理员、零外部数据库、国内低延迟网站访问量统计服务，100% 兼容 **Vercount** 与 **不蒜子（Busuanzi）** 前端标签及 `/api/v2/log`、`/api/v1/log` 接口。
 
-## 部署
+## 特性
+- **纯 EdgeOne 原生架构**：`Edge Functions + EdgeOne KV + 纯静态前端`，无需外部 Redis / PostgreSQL。
+- **双协议无缝兼容**：同时支持 `vercount_value_*` 与 `busuanzi_value_*` 标签及 `*_container_*` 容器显隐，支持 `window.vercountFetch()`（SPA/PJAX）。
+- **UV 分桶去重**：采用 64 桶哈希存储访客指纹（`SHA-256(host|ip|ua)`），兼顾去重精度与 KV 存储效率。
+- **单管理员后台（`/admin.html`）**：支持实时查看/修改/删除站点与页面计数、JSON 一键备份导出与历史数据导入（支持 `Math.max` 合并与覆盖）。
 
-[![使用 EdgeOne Pages 部署](https://cdnstatic.tencentcs.com/edgeone/pages/deploy.svg)](https://console.cloud.tencent.com/edgeone/pages/new?from=github&template=functions-kv)
+## 环境变量说明（EdgeOne 控制台配置）
 
-## 入门
+| 变量名 | 必填 | 默认值 | 说明 |
+| :--- | :--- | :--- | :--- |
+| `ADMIN_PASSWORD` | 是 | - | `/admin.html` 后台登录密码 |
+| `ADMIN_SESSION_SECRET` | 推荐 | 回退使用 `ADMIN_PASSWORD` | HMAC-SHA256 Cookie 签名密钥 |
+| `KV_BINDING_NAME` | 否 | `my_kv` | EdgeOne 控制台绑定的 KV 命名空间变量名 |
+| `ALLOWED_DOMAINS` | 推荐 | 空（放行全部） | 允许统计的域名白名单，逗号分隔，支持 `*.example.com` |
+| `FILTER_BOTS` | 否 | `true` | 是否过滤常见爬虫/脚本（命中时只读不递增） |
+| `AUTO_MIGRATE_BUSUANZI` | 否 | `false` | 首次访问某站点/页面时是否尝试从不蒜子拉取历史基数 |
 
-首先，运行开发服务器：
+## 本地开发与预览
 
 ```bash
-npm run dev
-# 或
-yarn dev
-# 或
-pnpm dev
-# 或
-bun dev
+npm install
+npm run build
+npm run validate
+npx edgeone makers dev
+npm run preview
 ```
-
-使用浏览器打开 [http://localhost:3000](http://localhost:3000) 查看结果。
-
-您可以通过修改 `app/page.tsx` 开始编辑页面。随着您编辑文件，页面会自动更新。
-
-该项目使用 [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) 自动优化和加载 Inter，这是一个自定义的 Google 字体。
-
-## 了解更多
-
-要了解有关 Next.js 的更多信息，请查看以下资源：
-
-- [Next.js 文档](https://nextjs.org/docs) - 了解 Next.js 的特性和 API。
-- [学习 Next.js](https://nextjs.org/learn) - 互动式 Next.js 教程。
-
-您可以查看 [Next.js GitHub 仓库](https://github.com/vercel/next.js/) - 欢迎您的反馈和贡献！

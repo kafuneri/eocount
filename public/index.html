@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EO Vercount — EdgeOne KV 网站访问量统计</title>
+  <script defer src="/js"></script>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card: #131926;
+      --border: #232c40;
+      --text: #e6edf7;
+      --muted: #8b9bb4;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --green: #10b981;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+      padding: 32px 16px;
+    }
+    .container { max-width: 780px; margin: 0 auto; }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 28px;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em; }
+    .badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: rgba(16, 185, 129, 0.14);
+      color: var(--green);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    .nav-btn {
+      color: var(--text);
+      text-decoration: none;
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      transition: border-color 0.2s;
+    }
+    .nav-btn:hover { border-color: var(--accent); }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 22px;
+      margin-bottom: 20px;
+    }
+    .card h2 { font-size: 1.1rem; margin-bottom: 14px; }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 600px) {
+      .stats-grid { grid-template-columns: 1fr; }
+    }
+    .stat-box {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+    }
+    .stat-label { font-size: 0.85rem; color: var(--muted); margin-bottom: 6px; }
+    .stat-value { font-size: 2rem; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
+    .actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 9px 16px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    button:hover { background: var(--accent-hover); }
+    button.secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    button.secondary:hover { border-color: var(--accent); }
+    .hint { font-size: 0.85rem; color: var(--muted); }
+    pre {
+      background: #080b12;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      overflow-x: auto;
+      font-size: 0.85rem;
+      color: #c9d8ef;
+      margin-top: 8px;
+      margin-bottom: 14px;
+    }
+    .code-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>EO Vercount <span class="badge">EdgeOne KV</span></h1>
+        <p class="hint">国内低延迟 · 零外部数据库 · 兼容 Vercount &amp; 不蒜子</p>
+      </div>
+      <a class="nav-btn" href="/admin.html">进入管理后台 →</a>
+    </header>
+
+    <section class="card">
+      <h2>实时计数演示（当前页面）</h2>
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-label">本文总阅读量 (page_pv)</div>
+          <div class="stat-value"><span id="vercount_value_page_pv">Loading</span></div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">本站总访问量 (site_pv)</div>
+          <div class="stat-value"><span id="vercount_value_site_pv">Loading</span></div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">本站总访客数 (site_uv)</div>
+          <div class="stat-value"><span id="vercount_value_site_uv">Loading</span></div>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="refreshBtn" type="button">手动触发 +1（测试一致性）</button>
+        <span class="hint" id="timingHint">等待首次统计请求...</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>快速接入指南</h2>
+      <div class="code-head">
+        <span>1. 在页面引入统计脚本（支持自定义域名）</span>
+        <button class="secondary" type="button" onclick="copySnippet('scriptCode', this)">复制</button>
+      </div>
+      <pre id="scriptCode"></pre>
+
+      <div class="code-head">
+        <span>2. 在需要展示数字的位置插入标签（Vercount 风格）</span>
+        <button class="secondary" type="button" onclick="copySnippet('vcTags', this)">复制</button>
+      </div>
+      <pre id="vcTags">&lt;span id="vercount_container_page_pv"&gt;本文阅读量 &lt;span id="vercount_value_page_pv"&gt;Loading&lt;/span&gt; 次&lt;/span&gt;
+&lt;span id="vercount_container_site_pv"&gt;本站总访问 &lt;span id="vercount_value_site_pv"&gt;Loading&lt;/span&gt; 次&lt;/span&gt;
+&lt;span id="vercount_container_site_uv"&gt;本站总访客 &lt;span id="vercount_value_site_uv"&gt;Loading&lt;/span&gt; 人&lt;/span&gt;</pre>
+
+      <div class="code-head">
+        <span>3. 或者继续保留不蒜子原有标签（无缝兼容）</span>
+        <button class="secondary" type="button" onclick="copySnippet('bszTags', this)">复制</button>
+      </div>
+      <pre id="bszTags">&lt;span id="busuanzi_container_page_pv"&gt;本文阅读量 &lt;span id="busuanzi_value_page_pv"&gt;&lt;/span&gt; 次&lt;/span&gt;
+&lt;span id="busuanzi_container_site_pv"&gt;本站总访问 &lt;span id="busuanzi_value_site_pv"&gt;&lt;/span&gt; 次&lt;/span&gt;
+&lt;span id="busuanzi_container_site_uv"&gt;本站总访客 &lt;span id="busuanzi_value_site_uv"&gt;&lt;/span&gt; 人&lt;/span&gt;</pre>
+    </section>
+  </div>
+
+  <script>
+    var origin = window.location.origin;
+    document.getElementById('scriptCode').textContent = '<script defer src="' + origin + '/js"><\/script>';
+
+    function copySnippet(id, btn) {
+      var text = document.getElementById(id).textContent;
+      navigator.clipboard.writeText(text).then(function () {
+        var old = btn.textContent;
+        btn.textContent = '已复制';
+        setTimeout(function () { btn.textContent = old; }, 1500);
+      });
+    }
+
+    document.getElementById('refreshBtn').addEventListener('click', async function () {
+      var hint = document.getElementById('timingHint');
+      var t0 = performance.now();
+      hint.textContent = '正在请求 /api/v2/log ...';
+      if (typeof window.vercountFetch === 'function') {
+        var data = await window.vercountFetch();
+        var cost = Math.round(performance.now() - t0);
+        hint.textContent = data
+          ? '刷新完成，耗时 ' + cost + ' ms（page_pv=' + data.page_pv + ', site_pv=' + data.site_pv + ', site_uv=' + data.site_uv + '）'
+          : '请求失败或超时（已回退缓存）';
+      }
+    });
+  </script>
+</body>
+</html>

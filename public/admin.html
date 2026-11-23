@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EO Vercount 管理后台</title>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card: #131926;
+      --border: #232c40;
+      --text: #e6edf7;
+      --muted: #8b9bb4;
+      --accent: #3b82f6;
+      --danger: #ef4444;
+      --green: #10b981;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 28px 16px;
+      line-height: 1.5;
+    }
+    .container { max-width: 1040px; margin: 0 auto; }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    h1 { font-size: 1.5rem; }
+    h2 { font-size: 1.1rem; margin-bottom: 14px; }
+    .hidden { display: none !important; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    input, select, textarea {
+      background: #080b12;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+    }
+    textarea { width: 100%; min-height: 120px; font-family: monospace; }
+    button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    button.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    button.danger { background: var(--danger); }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 12px;
+    }
+    .metric {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+    }
+    .metric .label { font-size: 0.8rem; color: var(--muted); }
+    .metric .val { font-size: 1.4rem; font-weight: 700; margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.88rem; }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 500; }
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      background: rgba(59,130,246,0.16);
+      color: #93c5fd;
+    }
+    .tag.site { background: rgba(16,185,129,0.16); color: #6ee7b7; }
+    .msg { font-size: 0.88rem; margin-top: 10px; color: var(--muted); }
+    a { color: #93c5fd; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>EO Vercount 管理后台</h1>
+        <a href="/">← 返回首页演示</a>
+      </div>
+      <div id="topActions" class="hidden row">
+        <button class="secondary" id="refreshAllBtn">刷新数据</button>
+        <button class="secondary" id="logoutBtn">退出登录</button>
+      </div>
+    </header>
+
+    <!-- 登录卡片 -->
+    <section id="loginCard" class="card" style="max-width:420px;margin:40px auto;">
+      <h2>管理员登录</h2>
+      <form id="loginForm" class="row">
+        <input id="passwordInput" type="password" placeholder="输入 ADMIN_PASSWORD" style="flex:1;" required />
+        <button type="submit">登录</button>
+      </form>
+      <div id="loginMsg" class="msg"></div>
+    </section>
+
+    <!-- 主面板 -->
+    <div id="dashboard" class="hidden">
+      <section class="card">
+        <h2>系统状态概览</h2>
+        <div class="grid" id="statusGrid"></div>
+        <div id="statusMeta" class="msg"></div>
+      </section>
+
+      <section class="card">
+        <h2>新增 / 修改计数条目</h2>
+        <form id="upsertForm" class="row">
+          <select id="upsertKind">
+            <option value="page">单页计数 (page_pv)</option>
+            <option value="site">站点汇总 (site_pv / site_uv)</option>
+          </select>
+          <input id="upsertUrl" type="url" placeholder="https://example.com/posts/hello" style="flex:2;min-width:240px;" required />
+          <input id="upsertPv" type="number" min="0" placeholder="PV" style="width:100px;" required />
+          <input id="upsertUv" type="number" min="0" placeholder="UV (仅站点)" style="width:120px;" />
+          <button type="submit">保存写入</button>
+        </form>
+        <div id="upsertMsg" class="msg"></div>
+      </section>
+
+      <section class="card">
+        <h2>计数数据明细</h2>
+        <div class="row">
+          <select id="filterType">
+            <option value="all">全部 (站点 + 页面)</option>
+            <option value="site">仅站点汇总</option>
+            <option value="page">仅页面明细</option>
+          </select>
+          <input id="filterHost" type="text" placeholder="按域名筛选 (如 blog.example.com)" style="min-width:210px;" />
+          <input id="filterSearch" type="text" placeholder="搜索路径关键词" style="flex:1;min-width:160px;" />
+          <button id="searchBtn" type="button">查询</button>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>类型</th>
+                <th>域名</th>
+                <th>路径 / 键</th>
+                <th>PV</th>
+                <th>UV</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="statsBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>JSON 备份与历史数据导入</h2>
+        <div class="row" style="margin-bottom:12px;">
+          <label><input type="checkbox" id="exportIncludeUv" /> 导出时包含 UV 去重桶</label>
+          <button id="exportBtn" type="button">一键导出 JSON</button>
+        </div>
+        <textarea id="importJson" placeholder='粘贴导出的 JSON，或简化格式: {"items":[{"url":"https://blog.example.com/","site_pv":25583,"site_uv":9388,"page_pv":1200}]}'></textarea>
+        <div class="row" style="margin-top:10px;">
+          <input type="file" id="importFile" accept=".json" />
+          <select id="importMode">
+            <option value="max">取较大值合并 (Math.max)</option>
+            <option value="overwrite">强制覆盖</option>
+          </select>
+          <button id="importBtn" type="button">执行导入</button>
+        </div>
+        <div id="backupMsg" class="msg"></div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    async function api(url, options) {
+      const res = await fetch(url, {
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        ...options,
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const err = new Error(json.message || 'HTTP ' + res.status);
+        err.status = res.status;
+        throw err;
+      }
+      return json;
+    }
+
+    function showLogin() {
+      document.getElementById('loginCard').classList.remove('hidden');
+      document.getElementById('dashboard').classList.add('hidden');
+      document.getElementById('topActions').classList.add('hidden');
+    }
+
+    function showDashboard() {
+      document.getElementById('loginCard').classList.add('hidden');
+      document.getElementById('dashboard').classList.remove('hidden');
+      document.getElementById('topActions').classList.remove('hidden');
+    }
+
+    async function loadStatus() {
+      const res = await api('/api/admin/status');
+      const d = res.data;
+      document.getElementById('statusGrid').innerHTML = [
+        ['KV 状态', d.kvConnected ? '已连接 (' + d.kvBindingName + ')' : '未连接'],
+        ['接入站点数', d.summary.totalSites],
+        ['统计页面数', d.summary.totalPages],
+        ['全站总 PV', d.summary.totalSitePv],
+        ['全站总 UV', d.summary.totalSiteUv],
+      ].map(([k, v]) => `<div class="metric"><div class="label">${k}</div><div class="val">${v}</div></div>`).join('');
+      document.getElementById('statusMeta').textContent =
+        '域名白名单: ' + (d.allowedDomains || '未限制（放行所有）') +
+        ' | 爬虫过滤: ' + (d.filterBots ? '开启' : '关闭') +
+        ' | 不蒜子首次自动迁移: ' + (d.autoMigrateBusuanzi ? '开启' : '关闭');
+    }
+
+    async function loadStats() {
+      const type = document.getElementById('filterType').value;
+      const host = document.getElementById('filterHost').value.trim();
+      const search = document.getElementById('filterSearch').value.trim();
+      const qs = new URLSearchParams({ type, host, search }).toString();
+      const res = await api('/api/admin/stats?' + qs);
+      const tbody = document.getElementById('statsBody');
+      if (!res.data.items.length) {
+        tbody.innerHTML = '<tr><td colspan="6" style="color:var(--muted)">暂无数据</td></tr>';
+        return;
+      }
+      tbody.innerHTML = res.data.items.map(item => {
+        const isSite = item.kind === 'site';
+        const pv = isSite ? item.site_pv : item.page_pv;
+        const uv = isSite ? item.site_uv : '-';
+        return `<tr>
+          <td><span class="tag ${isSite ? 'site' : ''}">${isSite ? '站点' : '页面'}</span></td>
+          <td>${item.host || ''}</td>
+          <td>${isSite ? '<span style="color:var(--muted)">(全站汇总)</span>' : (item.path || '')}</td>
+          <td>${pv}</td>
+          <td>${uv}</td>
+          <td class="row">
+            <button class="secondary" onclick="editItem('${item.key}', '${item.kind}', ${pv}, ${isSite ? item.site_uv : 0})">编辑</button>
+            <button class="danger" onclick="deleteItem('${item.key}')">删除</button>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    window.editItem = async function (key, kind, curPv, curUv) {
+      const pvStr = prompt('请输入新的 PV 数值:', curPv);
+      if (pvStr === null) return;
+      const body = { key };
+      if (kind === 'site') {
+        const uvStr = prompt('请输入新的 UV 数值:', curUv);
+        if (uvStr === null) return;
+        body.site_pv = Number(pvStr);
+        body.site_uv = Number(uvStr);
+      } else {
+        body.page_pv = Number(pvStr);
+      }
+      await api('/api/admin/stats', { method: 'PUT', body: JSON.stringify(body) });
+      await Promise.all([loadStatus(), loadStats()]);
+    };
+
+    window.deleteItem = async function (key) {
+      if (!confirm('确认删除 ' + key + ' 吗？')) return;
+      await api('/api/admin/stats', { method: 'DELETE', body: JSON.stringify({ key }) });
+      await Promise.all([loadStatus(), loadStats()]);
+    };
+
+    async function init() {
+      try {
+        await loadStatus();
+        showDashboard();
+        await loadStats();
+      } catch (err) {
+        showLogin();
+      }
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById('loginMsg');
+      try {
+        await api('/api/admin/login', {
+          method: 'POST',
+          body: JSON.stringify({ password: document.getElementById('passwordInput').value }),
+        });
+        msg.textContent = '';
+        await init();
+      } catch (err) {
+        msg.textContent = '登录失败: ' + err.message;
+      }
+    });
+
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      await api('/api/admin/logout', { method: 'POST' });
+      showLogin();
+    });
+
+    document.getElementById('refreshAllBtn').addEventListener('click', () => Promise.all([loadStatus(), loadStats()]));
+    document.getElementById('searchBtn').addEventListener('click', loadStats);
+
+    document.getElementById('upsertForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const kind = document.getElementById('upsertKind').value;
+      const payload = {
+        kind,
+        url: document.getElementById('upsertUrl').value.trim(),
+      };
+      if (kind === 'site') {
+        payload.site_pv = Number(document.getElementById('upsertPv').value || 0);
+        payload.site_uv = Number(document.getElementById('upsertUv').value || 0);
+      } else {
+        payload.page_pv = Number(document.getElementById('upsertPv').value || 0);
+      }
+      const msg = document.getElementById('upsertMsg');
+      try {
+        await api('/api/admin/stats', { method: 'PUT', body: JSON.stringify(payload) });
+        msg.textContent = '写入成功';
+        await Promise.all([loadStatus(), loadStats()]);
+      } catch (err) {
+        msg.textContent = '写入失败: ' + err.message;
+      }
+    });
+
+    document.getElementById('exportBtn').addEventListener('click', async () => {
+      const includeUv = document.getElementById('exportIncludeUv').checked;
+      const res = await api('/api/admin/backup?includeUv=' + includeUv);
+      const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'eo-vercount-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+      a.click();
+    });
+
+    document.getElementById('importFile').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        document.getElementById('importJson').value = await file.text();
+      }
+    });
+
+    document.getElementById('importBtn').addEventListener('click', async () => {
+      const msg = document.getElementById('backupMsg');
+      try {
+        const parsed = JSON.parse(document.getElementById('importJson').value);
+        const mode = document.getElementById('importMode').value;
+        const payload = { ...parsed, mode };
+        const res = await api('/api/admin/backup', { method: 'POST', body: JSON.stringify(payload) });
+        msg.textContent = `导入完成：更新 ${res.data.imported} 条，跳过 ${res.data.skipped} 条`;
+        await Promise.all([loadStatus(), loadStats()]);
+      } catch (err) {
+        msg.textContent = '导入失败: ' + err.message;
+      }
+    });
+
+    init();
+  </script>
+</body>
+</html>

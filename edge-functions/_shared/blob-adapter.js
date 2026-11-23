@@ -5,7 +5,7 @@
 import { getStore } from '@edgeone/pages-blob';
 
 export function getStorage(env) {
-  const storeName = env?.BLOB_STORE_NAME || 'vercount-data';
+  const storeName = env?.BLOB_STORE_NAME || 'eocount-dat';
   const options = {
     name: storeName,
     consistency: 'strong',

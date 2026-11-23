@@ -22,7 +22,7 @@ async function fetchBusuanziBaseline(host, path) {
       {
         headers: {
           Referer: targetUrl,
-          'User-Agent': 'Mozilla/5.0 (compatible; EO-Vercount/1.0)',
+          'User-Agent': 'Mozilla/5.0 (compatible; Eocount/1.0)',
         },
         signal: controller.signal,
       }

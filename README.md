@@ -1,61 +1,30 @@
 <div align="right">
-  <a href="README_zh-CN.md">简体中文</a>
+  <a href="README.en.md">English</a>
 </div>
 
-# Eocount
+# Eocount — EdgeOne Blob 强一致网站访问量统计
 
-A lightweight, serverless website traffic counter (PV/UV) built on **Tencent Cloud EdgeOne Pages (Makers)** and **EdgeOne Blob** (`consistency: "strong"`). Designed as a fast, zero-database, drop-in replacement for **Vercount** and **Busuanzi**.
+基于 **腾讯云 EdgeOne Pages (Makers)** 的单管理员、零外部数据库、国内低延迟网站访问量统计服务，使用 **EdgeOne Blob（`consistency: "strong"` 强一致模式）** 存储，100% 兼容 **Vercount** 与 **不蒜子（Busuanzi）** 前端标签及 `/api/v2/log`、`/api/v1/log` 接口。
 
-## Features
+## 特性
+- **强一致无丢数**：EdgeOne Blob 强一致读写，跨运营商（如联通宽带 ↔ 电信流量）切换秒级同步递增。
+- **纯 EdgeOne 原生架构**：`Edge Functions + EdgeOne Blob + 纯静态前端`，无需外部 Redis / PostgreSQL。
+- **双协议无缝兼容**：同时支持 `vercount_value_*` 与 `busuanzi_value_*` 标签及 `*_container_*` 容器显隐，支持 `window.eocountFetch()` / `window.vercountFetch()`（SPA/PJAX）。
+- **UV 分桶去重**：采用 64 桶哈希存储访客指纹（`SHA-256(host|ip|ua)`），极大节省 Blob 读写配额。
+- **单管理员后台（`/admin.html`）**：支持实时查看/修改/删除站点与页面计数、JSON 一键备份导出与历史数据导入（支持 `Math.max` 合并与覆盖）。
 
-- **Strong Consistency**: Powered by EdgeOne Blob (`consistency: "strong"`), ensuring zero lost counts across different ISPs and edge PoPs.
-- **Zero External Database**: Runs entirely on EdgeOne Edge Functions + EdgeOne Blob + static HTML. No external Redis or PostgreSQL required.
-- **Drop-in Vercount & Busuanzi Compatibility**:
-  - Supports both `vercount_value_*` and `busuanzi_value_*` DOM IDs as well as `*_container_*` visibility toggling.
-  - Exposes `/api/v2/log` (Vercount v2 format) and `/api/v1/log` (flat JSON).
-  - Supports `window.vercountFetch()` and `pjax:complete` / `astro:page-load` for SPAs.
-- **64-Bucket UV Deduplication**: Uses Web Crypto `SHA-256(host|ip|ua)` short hashes sharded across 64 buckets (`sites/<host>/uv/<bucket>.json`) to minimize Blob write operations.
-- **Built-in Admin Dashboard (`/admin.html`)**: Stateless HMAC-SHA256 cookie auth, live overview, inline editing/deletion, and JSON export/import (`Math.max` merge or overwrite).
-- **Security**: `ALLOWED_DOMAINS` domain whitelist (supports `*.example.com`) and read-only bot User-Agent filtering.
+## 环境变量说明（EdgeOne 控制台配置）
 
-## Quick Usage
-
-### 1. Include the Script
-
-```html
-<script defer src="https://your-domain.example.com/js"></script>
-```
-
-### 2. Add Counter Elements
-
-**Vercount style:**
-```html
-Page Views: <span id="vercount_value_page_pv">Loading</span>
-Site Visits: <span id="vercount_value_site_pv">Loading</span>
-Site Visitors: <span id="vercount_value_site_uv">Loading</span>
-```
-
-**Busuanzi style (drop-in compatible):**
-```html
-<span id="busuanzi_container_page_pv">Page Views: <span id="busuanzi_value_page_pv"></span></span>
-<span id="busuanzi_container_site_pv">Site Visits: <span id="busuanzi_value_site_pv"></span></span>
-<span id="busuanzi_container_site_uv">Site Visitors: <span id="busuanzi_value_site_uv"></span></span>
-```
-
-## Environment Variables
-
-Configure these in your EdgeOne Pages project settings:
-
-| Variable | Required | Default | Description |
+| 变量名 | 必填 | 默认值 | 说明 |
 | :--- | :--- | :--- | :--- |
-| `ADMIN_PASSWORD` | Yes | - | Password for `/admin.html` |
-| `ADMIN_SESSION_SECRET` | Recommended | `ADMIN_PASSWORD` | Secret key for HMAC-SHA256 session cookies |
-| `BLOB_STORE_NAME` | No | `vercount-data` | EdgeOne Blob store name (auto-created on first write) |
-| `ALLOWED_DOMAINS` | Recommended | Empty (allow all) | Comma-separated allowed domains (supports `*.example.com`) |
-| `FILTER_BOTS` | No | `true` | Return read-only counts for known bots/crawlers |
-| `AUTO_MIGRATE_BUSUANZI` | No | `false` | Fetch initial baseline from Busuanzi on first visit |
+| `ADMIN_PASSWORD` | 是 | - | `/admin.html` 后台登录密码 |
+| `ADMIN_SESSION_SECRET` | 推荐 | 回退使用 `ADMIN_PASSWORD` | HMAC-SHA256 Cookie 签名密钥 |
+| `BLOB_STORE_NAME` | 否 | `eocount-dat` | EdgeOne Blob 存储空间名称（首次调用自动创建） |
+| `ALLOWED_DOMAINS` | 推荐 | 空（放行全部） | 允许统计的域名白名单，逗号分隔，支持 `*.example.com` |
+| `FILTER_BOTS` | 否 | `true` | 是否过滤常见爬虫/脚本（命中时只读不递增） |
+| `AUTO_MIGRATE_BUSUANZI` | 否 | `false` | 首次访问某站点/页面时是否尝试从不蒜子拉取历史基数 |
 
-## Local Development
+## 本地开发与预览
 
 ```bash
 npm install
@@ -64,7 +33,3 @@ npm run validate
 npx edgeone makers dev
 npm run preview
 ```
-
-## License
-
-MIT

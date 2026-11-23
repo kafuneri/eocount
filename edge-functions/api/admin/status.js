@@ -13,7 +13,7 @@ export async function onRequestGet({ request, env }) {
     return jsonResponse({ status: 'error', message: auth.error }, auth.status);
   }
 
-  const storeName = env?.BLOB_STORE_NAME || 'vercount-data';
+  const storeName = env?.BLOB_STORE_NAME || 'eocount-dat';
   let blobConnected = false;
   let totalSites = 0;
   let totalPages = 0;

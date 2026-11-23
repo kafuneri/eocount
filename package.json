@@ -2,7 +2,7 @@
   "name": "eocount",
   "version": "1.0.0",
   "private": true,
-  "description": "Lightweight website PV/UV counter on Tencent Cloud EdgeOne Makers (KV), compatible with Vercount and Busuanzi",
+  "description": "Lightweight website PV/UV counter on Tencent Cloud EdgeOne Makers (Blob), compatible with Vercount and Busuanzi",
   "type": "module",
   "scripts": {
     "build": "node -e \"const fs=require('fs');fs.mkdirSync('public/assets',{recursive:true});\" && terser src/client.js -o public/assets/client.min.js --compress --mangle && node -e \"const fs=require('fs');const code=fs.readFileSync('public/assets/client.min.js','utf8');fs.writeFileSync('edge-functions/_shared/client-code.js','export const CLIENT_JS = '+JSON.stringify(code)+';\\n');\"",

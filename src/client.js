@@ -16,7 +16,7 @@
   var REQUEST_TIMEOUT = 5000;
 
   function getCacheKey() {
-    return 'eoVercount:' + window.location.pathname;
+    return 'eocount:' + window.location.pathname;
   }
 
   function getCachedData() {
@@ -112,6 +112,7 @@
     }
   }
 
+  window.eocountFetch = runCounter;
   window.vercountFetch = runCounter;
   document.addEventListener('pjax:complete', runCounter);
   document.addEventListener('astro:page-load', runCounter);

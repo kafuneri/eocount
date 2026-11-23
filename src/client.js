@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  var scriptEl = document.currentScript;
+  var scriptEl = document.currentScript || document.querySelector('script[src*="/js"]');
   var API_URL = '/api/v2/log';
   if (scriptEl && scriptEl.src) {
     try {

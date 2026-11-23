@@ -194,6 +194,15 @@
     .btn.ghost:hover { background: var(--eo-soft); color: var(--eo-blue); }
     .btn.danger-ghost { background: transparent; border: none; color: var(--danger); padding: 6px 10px; }
     .btn.danger-ghost:hover { background: var(--danger-soft); }
+    .btn.icon-only { padding: 6px 8px; }
+    .btn.fav-active { color: #f59e0b; }
+    .btn.fav-active:hover { background: rgba(245, 158, 11, 0.1); color: #d97706; }
+    .btn.hide-active { color: var(--eo-blue); background: var(--eo-soft); }
+    .mini-badge {
+      font-size: 0.72rem; padding: 1px 7px; border-radius: 999px; font-weight: 600;
+      background: rgba(100, 116, 139, 0.12); color: var(--muted);
+    }
+    .mini-badge.fav { background: rgba(245, 158, 11, 0.14); color: #b45309; }
     .btn.sm { padding: 5px 10px; font-size: 0.8rem; }
 
     /* DataTable */
@@ -397,7 +406,13 @@
         <div id="view-domains" class="hidden">
           <div class="page-header">
             <h1 class="page-title" data-i18n="titleDomains">Domains</h1>
-            <button class="btn secondary" onclick="switchView('overview')" type="button" data-i18n="backDashBtn">Back to Dashboard</button>
+            <div class="row">
+              <button class="btn secondary" id="toggleHiddenViewBtn" onclick="toggleShowHiddenDomains()" type="button">
+                <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                <span id="toggleHiddenViewLabel">查看隐藏站点</span>
+              </button>
+              <button class="btn secondary" onclick="switchView('overview')" type="button" data-i18n="backDashBtn">Back to Dashboard</button>
+            </div>
           </div>
           <div class="card">
             <h2 data-i18n="addDomainTitle">Add a domain</h2>
@@ -494,6 +509,12 @@
         rowsPerPage: '条/页', showingOf: (a, b) => `显示 ${a} / 共 ${b} 条`, pageOf: (p, t) => `第 ${p} / ${t} 页`,
         prevBtn: '上一页', nextBtn: '下一页',
         loadingPages: (a, b) => b > 0 ? `正在加载页面明细：${a} / ${b}` : '正在加载页面明细...',
+        showHiddenBtn: n => n > 0 ? `查看隐藏站点 (${n})` : '查看隐藏站点',
+        hideHiddenBtn: '返回站点列表',
+        noHiddenDomains: '暂无被隐藏的站点。',
+        hideTitle: '隐藏站点', unhideTitle: '取消隐藏',
+        favTitle: '收藏置顶', unfavTitle: '取消收藏',
+        hiddenBadge: '已隐藏', pinnedBadge: '置顶',
         backupTitle: '备份与历史数据导入', includeUvLabel: '导出时包含访客去重桶', exportBtn: '一键导出文件',
         modeMax: '取较大值合并', modeOverwrite: '强制覆盖', importBtn: '执行导入',
         importDone: (i, s) => `导入完成：更新 ${i} 条，跳过 ${s} 条`, importErr: '导入失败: ', loginErr: '登录失败: ',
@@ -525,6 +546,12 @@
         rowsPerPage: 'rows per page', showingOf: (a, b) => `Showing ${a} of ${b} results`, pageOf: (p, t) => `${p} of ${t}`,
         prevBtn: 'Previous', nextBtn: 'Next',
         loadingPages: (a, b) => b > 0 ? `Loading pages: ${a} / ${b}` : 'Loading pages...',
+        showHiddenBtn: n => n > 0 ? `View Hidden (${n})` : 'View Hidden',
+        hideHiddenBtn: 'Back to Domains',
+        noHiddenDomains: 'No hidden domains.',
+        hideTitle: 'Hide domain', unhideTitle: 'Unhide domain',
+        favTitle: 'Pin / Favorite', unfavTitle: 'Unfavorite',
+        hiddenBadge: 'Hidden', pinnedBadge: 'Pinned',
         backupTitle: 'JSON Backup & Historical Import', includeUvLabel: 'Include UV dedup buckets on export', exportBtn: 'Export JSON',
         modeMax: 'Merge Max (Math.max)', modeOverwrite: 'Overwrite', importBtn: 'Import',
         importDone: (i, s) => `Imported ${i} entries, skipped ${s}`, importErr: 'Import failed: ', loginErr: 'Login failed: ',
@@ -546,6 +573,42 @@
     let pageIndex = 0;
     let pageSize = 10;
     let loadingPagesProgress = null; // { host, loaded, total } | null
+    let showHiddenDomains = false;
+
+    function loadStringSet(key) {
+      try {
+        const arr = JSON.parse(localStorage.getItem(key) || '[]');
+        return new Set(Array.isArray(arr) ? arr : []);
+      } catch { return new Set(); }
+    }
+    const favDomains = loadStringSet('eocount:favDomains');
+    const hiddenDomains = loadStringSet('eocount:hiddenDomains');
+
+    function saveDomainPrefs() {
+      localStorage.setItem('eocount:favDomains', JSON.stringify(Array.from(favDomains)));
+      localStorage.setItem('eocount:hiddenDomains', JSON.stringify(Array.from(hiddenDomains)));
+    }
+
+    window.toggleFavDomain = function (host) {
+      if (favDomains.has(host)) favDomains.delete(host);
+      else favDomains.add(host);
+      saveDomainPrefs();
+      renderDomainsView();
+      if (currentView === 'analytics') renderAnalyticsView();
+    };
+
+    window.toggleHideDomain = function (host) {
+      if (hiddenDomains.has(host)) hiddenDomains.delete(host);
+      else hiddenDomains.add(host);
+      saveDomainPrefs();
+      renderDomainsView();
+      if (currentView === 'analytics') renderAnalyticsView();
+    };
+
+    window.toggleShowHiddenDomains = function () {
+      showHiddenDomains = !showHiddenDomains;
+      renderDomainsView();
+    };
 
     function safeDecode(s) {
       try { return decodeURIComponent(s); } catch { return s; }
@@ -603,7 +666,7 @@
       if (view === 'analytics') renderAnalyticsView();
     };
 
-    function getDomainsGrouped() {
+    function getDomainsGrouped(includeHidden = false) {
       const map = new Map();
       for (const item of allItems) {
         const host = item.host;
@@ -615,8 +678,16 @@
           d.siteUv = Number(item.site_uv || 0);
         }
       }
-      const list = Array.from(map.values());
-      list.sort((a, b) => b.sitePv - a.sitePv);
+      let list = Array.from(map.values());
+      if (!includeHidden) {
+        list = list.filter(d => !hiddenDomains.has(d.name));
+      }
+      list.sort((a, b) => {
+        const favA = favDomains.has(a.name) ? 1 : 0;
+        const favB = favDomains.has(b.name) ? 1 : 0;
+        if (favA !== favB) return favB - favA;
+        return b.sitePv - a.sitePv;
+      });
       list.forEach(d => {
         const cached = domainPagesCache.get(d.name) || [];
         d.pages = cached.map(p => ({ key: p.key, path: p.path || '/', views: Number(p.page_pv || 0) }));
@@ -707,23 +778,49 @@
 
     function renderDomainsView() {
       const dict = I18N[currentLang];
-      const domains = getDomainsGrouped();
+      const allGrouped = getDomainsGrouped(true);
+      const hiddenCount = allGrouped.filter(d => hiddenDomains.has(d.name)).length;
+      const toggleBtn = document.getElementById('toggleHiddenViewBtn');
+      const toggleLbl = document.getElementById('toggleHiddenViewLabel');
+      if (toggleLbl) toggleLbl.textContent = showHiddenDomains ? dict.hideHiddenBtn : dict.showHiddenBtn(hiddenCount);
+      if (toggleBtn) toggleBtn.classList.toggle('hide-active', showHiddenDomains);
+
+      const domains = showHiddenDomains
+        ? allGrouped.filter(d => hiddenDomains.has(d.name))
+        : allGrouped.filter(d => !hiddenDomains.has(d.name));
+
       const box = document.getElementById('domainsList');
       if (!domains.length) {
-        box.innerHTML = `<div class="empty-box">${dict.noDomains}</div>`;
+        box.innerHTML = `<div class="empty-box">${showHiddenDomains ? dict.noHiddenDomains : dict.noDomains}</div>`;
         return;
       }
-      box.innerHTML = domains.map(d => `
+      box.innerHTML = domains.map(d => {
+        const isFav = favDomains.has(d.name);
+        const isHidden = hiddenDomains.has(d.name);
+        return `
         <div class="domain-card">
           <div class="domain-card-top">
             <div class="domain-name-wrap">
               <span class="status-dot"></span>
               <strong>${escapeHtml(d.name)}</strong>
+              ${isFav ? `<span class="mini-badge fav">${dict.pinnedBadge}</span>` : ''}
+              ${isHidden ? `<span class="mini-badge">${dict.hiddenBadge}</span>` : ''}
             </div>
-            <button class="btn danger-ghost sm" onclick="deleteDomain('${escapeHtml(d.name)}')" type="button">
-              <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-              <span>${dict.deleteDomainBtn}</span>
-            </button>
+            <div class="row" style="gap:4px;">
+              <button class="btn danger-ghost sm" onclick="deleteDomain('${escapeHtml(d.name)}')" type="button">
+                <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                <span>${dict.deleteDomainBtn}</span>
+              </button>
+              <button class="btn ghost sm icon-only ${isHidden ? 'hide-active' : ''}" onclick="toggleHideDomain('${escapeHtml(d.name)}')" type="button" title="${isHidden ? dict.unhideTitle : dict.hideTitle}">
+                ${isHidden
+                  ? '<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>'
+                  : '<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>'
+                }
+              </button>
+              <button class="btn ghost sm icon-only ${isFav ? 'fav-active' : ''}" onclick="toggleFavDomain('${escapeHtml(d.name)}')" type="button" title="${isFav ? dict.unfavTitle : dict.favTitle}">
+                <svg class="icon-sm" viewBox="0 0 24 24" fill="${isFav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              </button>
+            </div>
           </div>
           <div class="domain-card-body" onclick="switchView('analytics', '${escapeHtml(d.name)}')">
             <div class="domain-metrics">
@@ -741,7 +838,8 @@
                 ${d.pages.slice(0, 3).map(p => `<div class="domain-top-row"><span>${escapeHtml(safeDecode(p.path))}</span><span>${p.views.toLocaleString()}</span></div>`).join('')}
               </div>` : ''}
           </div>
-        </div>`).join('');
+        </div>`;
+      }).join('');
     }
 
     function renderAnalyticsView() {

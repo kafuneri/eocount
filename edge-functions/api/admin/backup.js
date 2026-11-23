@@ -132,23 +132,26 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
-    for (const [key, incoming] of Object.entries(entriesToWrite)) {
+    const entriesList = Object.entries(entriesToWrite);
+    const BATCH_SIZE = 15;
+
+    async function processEntry([key, incoming]) {
       if (!incoming || typeof incoming !== 'object') {
         skipped++;
-        continue;
+        return;
       }
 
       if (mode === 'overwrite') {
         await putJson(store, key, { ...incoming, updatedAt: now });
         imported++;
-        continue;
+        return;
       }
 
       const existing = await getJson(store, key);
       if (!existing) {
         await putJson(store, key, { ...incoming, updatedAt: now });
         imported++;
-        continue;
+        return;
       }
 
       if (isSiteKey(key)) {
@@ -196,6 +199,10 @@ export async function onRequestPost({ request, env }) {
           skipped++;
         }
       }
+    }
+
+    for (let i = 0; i < entriesList.length; i += BATCH_SIZE) {
+      await Promise.all(entriesList.slice(i, i + BATCH_SIZE).map(processEntry));
     }
 
     return jsonResponse({

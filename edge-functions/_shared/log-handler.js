@@ -107,13 +107,15 @@ export async function handleLogPost(context, version = 'v2') {
     }
 
     const ip = getClientIp(request);
+    const waitUntil = typeof context.waitUntil === 'function' ? context.waitUntil.bind(context) : null;
     const counts = await recordVisit(
       kv,
       normalized.host,
       normalized.path,
       ip,
       ua,
-      env
+      env,
+      waitUntil
     );
     return formatResponse(version, counts, 'Data updated successfully', 200);
   } catch (err) {

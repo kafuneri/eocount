@@ -1,6 +1,9 @@
 /**
- * URL normalization, Web Crypto SHA-256 hashing, and KV-safe key builders.
- * EdgeOne KV keys allow only [A-Za-z0-9_] and max 512 bytes.
+ * URL normalization, Web Crypto SHA-256 hashing, and Blob directory key builders.
+ * Layout:
+ *   sites/<host>/summary.json
+ *   sites/<host>/pages/<pathHash16>.json
+ *   sites/<host>/uv/<bucketHex>.json
  */
 
 export async function sha256Hex(input) {
@@ -32,17 +35,14 @@ export function normalizeUrl(rawUrl) {
   }
 
   let path = parsed.pathname || '/';
-  // Collapse duplicate slashes
   path = path.replace(/\/{2,}/g, '/');
 
-  // Normalize index files
   if (/^\/(index|index\.html|index\.htm)$/i.test(path)) {
     path = '/';
   } else if (/\/index(\.html|\.htm)?$/i.test(path)) {
     path = path.replace(/\/index(\.html|\.htm)?$/i, '') || '/';
   }
 
-  // Remove trailing slash except root
   if (path.length > 1 && path.endsWith('/')) {
     path = path.slice(0, -1);
   }
@@ -59,8 +59,8 @@ export function normalizeUrl(rawUrl) {
   };
 }
 
-export async function getHostHash12(host) {
-  return (await sha256Hex(host)).slice(0, 12);
+export function sanitizeHostForKey(host) {
+  return String(host).toLowerCase().replace(/:/g, '_');
 }
 
 export async function getPathHash16(path) {
@@ -76,14 +76,26 @@ export function getBucketHex(visitorHash16) {
   return bucketIndex.toString(16).padStart(2, '0');
 }
 
-export function buildSiteKey(hostHash12) {
-  return `site_${hostHash12}`;
+export function buildSiteKey(host) {
+  return `sites/${sanitizeHostForKey(host)}/summary.json`;
 }
 
-export function buildPageKey(hostHash12, pathHash16) {
-  return `page_${hostHash12}_${pathHash16}`;
+export function buildPageKey(host, pathHash16) {
+  return `sites/${sanitizeHostForKey(host)}/pages/${pathHash16}.json`;
 }
 
-export function buildUvKey(hostHash12, bucketHex) {
-  return `uv_${hostHash12}_${bucketHex}`;
+export function buildUvKey(host, bucketHex) {
+  return `sites/${sanitizeHostForKey(host)}/uv/${bucketHex}.json`;
+}
+
+export function isSiteKey(key) {
+  return typeof key === 'string' && key.startsWith('sites/') && key.endsWith('/summary.json');
+}
+
+export function isPageKey(key) {
+  return typeof key === 'string' && key.startsWith('sites/') && key.includes('/pages/') && key.endsWith('.json');
+}
+
+export function isUvKey(key) {
+  return typeof key === 'string' && key.startsWith('sites/') && key.includes('/uv/') && key.endsWith('.json');
 }

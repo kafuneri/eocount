@@ -8,7 +8,6 @@ import {
   buildSiteKey,
   buildUvKey,
   getBucketHex,
-  getHostHash12,
   getPathHash16,
   getVisitorHash16,
 } from './hash.js';
@@ -46,13 +45,10 @@ async function fetchBusuanziBaseline(host, path) {
 }
 
 export async function getCounts(kv, host, path) {
-  const [hostHash12, pathHash16] = await Promise.all([
-    getHostHash12(host),
-    getPathHash16(path),
-  ]);
+  const pathHash16 = await getPathHash16(path);
 
-  const sKey = buildSiteKey(hostHash12);
-  const pKey = buildPageKey(hostHash12, pathHash16);
+  const sKey = buildSiteKey(host);
+  const pKey = buildPageKey(host, pathHash16);
 
   const [siteData, pageData] = await Promise.all([
     getJson(kv, sKey),
@@ -67,16 +63,15 @@ export async function getCounts(kv, host, path) {
 }
 
 export async function recordVisit(kv, host, path, ip, ua, env) {
-  const [hostHash12, pathHash16, visitorHash16] = await Promise.all([
-    getHostHash12(host),
+  const [pathHash16, visitorHash16] = await Promise.all([
     getPathHash16(path),
     getVisitorHash16(host, ip, ua),
   ]);
 
   const bucketHex = getBucketHex(visitorHash16);
-  const sKey = buildSiteKey(hostHash12);
-  const pKey = buildPageKey(hostHash12, pathHash16);
-  const uKey = buildUvKey(hostHash12, bucketHex);
+  const sKey = buildSiteKey(host);
+  const pKey = buildPageKey(host, pathHash16);
+  const uKey = buildUvKey(host, bucketHex);
 
   const [existingSite, existingPage, existingUv] = await Promise.all([
     getJson(kv, sKey),

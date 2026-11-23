@@ -3,9 +3,11 @@ import { corsPreflightResponse, jsonResponse } from '../../_shared/cors.js';
 import {
   buildPageKey,
   buildSiteKey,
-  getHostHash12,
   getPathHash16,
+  isPageKey,
+  isSiteKey,
   normalizeUrl,
+  sanitizeHostForKey,
 } from '../../_shared/hash.js';
 import {
   deleteKey,
@@ -26,33 +28,32 @@ export async function onRequestGet({ request, env }) {
   }
 
   try {
-    const kv = getStorage(env);
+    const store = getStorage(env);
     const url = new URL(request.url);
     const type = url.searchParams.get('type') || 'all'; // 'site' | 'page' | 'all'
     const hostFilter = (url.searchParams.get('host') || '').trim().toLowerCase();
     const search = (url.searchParams.get('search') || '').trim().toLowerCase();
 
-    let prefix = '';
-    if (type === 'site') {
-      prefix = 'site_';
-    } else if (type === 'page') {
-      prefix = hostFilter ? `page_${await getHostHash12(hostFilter)}_` : 'page_';
+    let prefix = 'sites/';
+    if (hostFilter) {
+      const safeHost = sanitizeHostForKey(hostFilter);
+      prefix = type === 'page' ? `sites/${safeHost}/pages/` : `sites/${safeHost}/`;
     }
 
     const keys = [];
     let cursor = undefined;
     do {
-      const res = await listKeys(kv, { prefix, cursor, limit: 100 });
+      const res = await listKeys(store, { prefix, cursor, limit: 100 });
       for (const k of res.keys) {
-        if (type === 'all' && !k.startsWith('site_') && !k.startsWith('page_')) {
-          continue;
-        }
+        if (type === 'site' && !isSiteKey(k)) continue;
+        if (type === 'page' && !isPageKey(k)) continue;
+        if (type === 'all' && !isSiteKey(k) && !isPageKey(k)) continue;
         keys.push(k);
       }
       cursor = res.complete ? undefined : res.cursor;
     } while (cursor);
 
-    const values = await Promise.all(keys.map((k) => getJson(kv, k)));
+    const values = await Promise.all(keys.map((k) => getJson(store, k)));
     const items = [];
     for (let i = 0; i < keys.length; i++) {
       const val = values[i];
@@ -64,7 +65,7 @@ export async function onRequestGet({ request, env }) {
       }
       items.push({
         key: keys[i],
-        kind: keys[i].startsWith('site_') ? 'site' : 'page',
+        kind: isSiteKey(keys[i]) ? 'site' : 'page',
         ...val,
       });
     }
@@ -95,59 +96,57 @@ export async function onRequestPut({ request, env }) {
   }
 
   try {
-    const kv = getStorage(env);
+    const store = getStorage(env);
     const now = Date.now();
 
-    // Support creating/updating by raw URL or by existing key
     if (body.url) {
       const norm = normalizeUrl(body.url);
       if (!norm.valid) {
         return jsonResponse({ status: 'error', message: norm.reason }, 400);
       }
-      const hostHash12 = await getHostHash12(norm.host);
       if (body.kind === 'site') {
-        const key = buildSiteKey(hostHash12);
-        const existing = (await getJson(kv, key)) || {};
+        const key = buildSiteKey(norm.host);
+        const existing = (await getJson(store, key)) || {};
         const data = {
           host: norm.host,
           site_pv: Number(body.site_pv ?? existing.site_pv ?? 0),
           site_uv: Number(body.site_uv ?? existing.site_uv ?? 0),
           updatedAt: now,
         };
-        await putJson(kv, key, data);
+        await putJson(store, key, data);
         return jsonResponse({ status: 'success', data: { key, kind: 'site', ...data } });
       }
       const pathHash16 = await getPathHash16(norm.path);
-      const key = buildPageKey(hostHash12, pathHash16);
-      const existing = (await getJson(kv, key)) || {};
+      const key = buildPageKey(norm.host, pathHash16);
+      const existing = (await getJson(store, key)) || {};
       const data = {
         host: norm.host,
         path: norm.path,
         page_pv: Number(body.page_pv ?? existing.page_pv ?? 0),
         updatedAt: now,
       };
-      await putJson(kv, key, data);
+      await putJson(store, key, data);
       return jsonResponse({ status: 'success', data: { key, kind: 'page', ...data } });
     }
 
     const key = body.key;
-    if (!key || (!key.startsWith('site_') && !key.startsWith('page_'))) {
+    if (!key || (!isSiteKey(key) && !isPageKey(key))) {
       return jsonResponse({ status: 'error', message: 'Invalid key or url' }, 400);
     }
 
-    const existing = await getJson(kv, key);
+    const existing = await getJson(store, key);
     if (!existing) {
       return jsonResponse({ status: 'error', message: 'Key not found' }, 404);
     }
 
-    if (key.startsWith('site_')) {
+    if (isSiteKey(key)) {
       const updated = {
         ...existing,
         site_pv: Number(body.site_pv ?? existing.site_pv ?? 0),
         site_uv: Number(body.site_uv ?? existing.site_uv ?? 0),
         updatedAt: now,
       };
-      await putJson(kv, key, updated);
+      await putJson(store, key, updated);
       return jsonResponse({ status: 'success', data: { key, kind: 'site', ...updated } });
     }
 
@@ -156,7 +155,7 @@ export async function onRequestPut({ request, env }) {
       page_pv: Number(body.page_pv ?? existing.page_pv ?? 0),
       updatedAt: now,
     };
-    await putJson(kv, key, updated);
+    await putJson(store, key, updated);
     return jsonResponse({ status: 'success', data: { key, kind: 'page', ...updated } });
   } catch (err) {
     return jsonResponse({ status: 'error', message: err.message }, 500);
@@ -182,8 +181,8 @@ export async function onRequestDelete({ request, env }) {
   }
 
   try {
-    const kv = getStorage(env);
-    await deleteKey(kv, key);
+    const store = getStorage(env);
+    await deleteKey(store, key);
     return jsonResponse({ status: 'success', message: 'Deleted', data: { key } });
   } catch (err) {
     return jsonResponse({ status: 'error', message: err.message }, 500);

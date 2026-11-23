@@ -3,8 +3,10 @@ import { corsPreflightResponse, jsonResponse } from '../../_shared/cors.js';
 import {
   buildPageKey,
   buildSiteKey,
-  getHostHash12,
   getPathHash16,
+  isPageKey,
+  isSiteKey,
+  isUvKey,
   normalizeUrl,
 } from '../../_shared/hash.js';
 import {
@@ -25,23 +27,23 @@ export async function onRequestGet({ request, env }) {
   }
 
   try {
-    const kv = getStorage(env);
+    const store = getStorage(env);
     const url = new URL(request.url);
     const includeUv = url.searchParams.get('includeUv') === 'true';
 
     const keys = [];
     let cursor = undefined;
     do {
-      const res = await listKeys(kv, { prefix: '', cursor, limit: 100 });
+      const res = await listKeys(store, { prefix: 'sites/', cursor, limit: 100 });
       for (const k of res.keys) {
-        if (k.startsWith('site_') || k.startsWith('page_') || (includeUv && k.startsWith('uv_'))) {
+        if (isSiteKey(k) || isPageKey(k) || (includeUv && isUvKey(k))) {
           keys.push(k);
         }
       }
       cursor = res.complete ? undefined : res.cursor;
     } while (cursor);
 
-    const values = await Promise.all(keys.map((k) => getJson(kv, k)));
+    const values = await Promise.all(keys.map((k) => getJson(store, k)));
     const entries = {};
     for (let i = 0; i < keys.length; i++) {
       if (values[i] !== null) {
@@ -53,7 +55,7 @@ export async function onRequestGet({ request, env }) {
       status: 'success',
       data: {
         exportedAt: new Date().toISOString(),
-        version: 1,
+        version: 2,
         count: Object.keys(entries).length,
         entries,
       },
@@ -78,8 +80,6 @@ export async function onRequestPost({ request, env }) {
 
   const mode = body?.mode === 'overwrite' ? 'overwrite' : 'max';
   const rawEntries = body?.entries || body?.data?.entries;
-
-  // Also support simplified array format: [{ url, site_pv, site_uv, page_pv }]
   const simpleList = Array.isArray(body?.items) ? body.items : null;
 
   if (!rawEntries && !simpleList) {
@@ -90,7 +90,7 @@ export async function onRequestPost({ request, env }) {
   }
 
   try {
-    const kv = getStorage(env);
+    const store = getStorage(env);
     const now = Date.now();
     let imported = 0;
     let skipped = 0;
@@ -99,7 +99,7 @@ export async function onRequestPost({ request, env }) {
 
     if (rawEntries && typeof rawEntries === 'object') {
       for (const [k, v] of Object.entries(rawEntries)) {
-        if (k.startsWith('site_') || k.startsWith('page_') || k.startsWith('uv_')) {
+        if (isSiteKey(k) || isPageKey(k) || isUvKey(k)) {
           entriesToWrite[k] = v;
         }
       }
@@ -110,9 +110,8 @@ export async function onRequestPost({ request, env }) {
         if (!item?.url) continue;
         const norm = normalizeUrl(item.url);
         if (!norm.valid) continue;
-        const hostHash12 = await getHostHash12(norm.host);
         if (item.site_pv !== undefined || item.site_uv !== undefined) {
-          const sKey = buildSiteKey(hostHash12);
+          const sKey = buildSiteKey(norm.host);
           entriesToWrite[sKey] = {
             host: norm.host,
             site_pv: Number(item.site_pv || 0),
@@ -122,7 +121,7 @@ export async function onRequestPost({ request, env }) {
         }
         if (item.page_pv !== undefined) {
           const pathHash16 = await getPathHash16(norm.path);
-          const pKey = buildPageKey(hostHash12, pathHash16);
+          const pKey = buildPageKey(norm.host, pathHash16);
           entriesToWrite[pKey] = {
             host: norm.host,
             path: norm.path,
@@ -140,23 +139,23 @@ export async function onRequestPost({ request, env }) {
       }
 
       if (mode === 'overwrite') {
-        await putJson(kv, key, { ...incoming, updatedAt: now });
+        await putJson(store, key, { ...incoming, updatedAt: now });
         imported++;
         continue;
       }
 
-      const existing = await getJson(kv, key);
+      const existing = await getJson(store, key);
       if (!existing) {
-        await putJson(kv, key, { ...incoming, updatedAt: now });
+        await putJson(store, key, { ...incoming, updatedAt: now });
         imported++;
         continue;
       }
 
-      if (key.startsWith('site_')) {
+      if (isSiteKey(key)) {
         const mergedPv = Math.max(Number(existing.site_pv || 0), Number(incoming.site_pv || 0));
         const mergedUv = Math.max(Number(existing.site_uv || 0), Number(incoming.site_uv || 0));
         if (mergedPv > Number(existing.site_pv || 0) || mergedUv > Number(existing.site_uv || 0)) {
-          await putJson(kv, key, {
+          await putJson(store, key, {
             ...existing,
             host: incoming.host || existing.host,
             site_pv: mergedPv,
@@ -167,10 +166,10 @@ export async function onRequestPost({ request, env }) {
         } else {
           skipped++;
         }
-      } else if (key.startsWith('page_')) {
+      } else if (isPageKey(key)) {
         const mergedPv = Math.max(Number(existing.page_pv || 0), Number(incoming.page_pv || 0));
         if (mergedPv > Number(existing.page_pv || 0)) {
-          await putJson(kv, key, {
+          await putJson(store, key, {
             ...existing,
             host: incoming.host || existing.host,
             path: incoming.path || existing.path,
@@ -181,12 +180,12 @@ export async function onRequestPost({ request, env }) {
         } else {
           skipped++;
         }
-      } else if (key.startsWith('uv_')) {
+      } else if (isUvKey(key)) {
         const prevHashes = Array.isArray(existing.hashes) ? existing.hashes : [];
         const nextHashes = Array.isArray(incoming.hashes) ? incoming.hashes : [];
         const merged = Array.from(new Set([...prevHashes, ...nextHashes]));
         if (merged.length > prevHashes.length) {
-          await putJson(kv, key, {
+          await putJson(store, key, {
             ...existing,
             host: incoming.host || existing.host,
             hashes: merged,

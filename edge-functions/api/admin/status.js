@@ -1,6 +1,7 @@
 import { requireAdmin } from '../../_shared/auth.js';
 import { getJson, getStorage, listKeys } from '../../_shared/blob-adapter.js';
 import { corsPreflightResponse, jsonResponse } from '../../_shared/cors.js';
+import { isPageKey, isSiteKey } from '../../_shared/hash.js';
 
 export function onRequestOptions() {
   return corsPreflightResponse();
@@ -26,8 +27,14 @@ export async function onRequestGet({ request, env }) {
     const siteKeys = [];
     let cursor = undefined;
     do {
-      const res = await listKeys(store, { prefix: 'site_', cursor, limit: 100 });
-      siteKeys.push(...res.keys);
+      const res = await listKeys(store, { prefix: 'sites/', cursor, limit: 100 });
+      for (const k of res.keys) {
+        if (isSiteKey(k)) {
+          siteKeys.push(k);
+        } else if (isPageKey(k)) {
+          totalPages++;
+        }
+      }
       cursor = res.complete ? undefined : res.cursor;
     } while (cursor);
 
@@ -40,13 +47,6 @@ export async function onRequestGet({ request, env }) {
         totalSiteUv += Number(item.site_uv || 0);
       }
     }
-
-    let pageCursor = undefined;
-    do {
-      const res = await listKeys(store, { prefix: 'page_', cursor: pageCursor, limit: 100 });
-      totalPages += res.keys.length;
-      pageCursor = res.complete ? undefined : res.cursor;
-    } while (pageCursor);
   } catch (err) {
     blobError = err.message;
   }

@@ -610,25 +610,55 @@
         if (item.kind === 'site') {
           d.sitePv = Number(item.site_pv || 0);
           d.siteUv = Number(item.site_uv || 0);
-        } else {
-          d.pages.push({ key: item.key, path: item.path || '/', views: Number(item.page_pv || 0) });
         }
       }
       const list = Array.from(map.values());
       list.sort((a, b) => b.sitePv - a.sitePv);
-      list.forEach(d => d.pages.sort((a, b) => b.views - a.views));
+      list.forEach(d => {
+        const cached = domainPagesCache.get(d.name) || [];
+        d.pages = cached.map(p => ({ key: p.key, path: p.path || '/', views: Number(p.page_pv || 0) }));
+      });
       return list;
     }
 
-    function selectDomain(host, shouldRender = true) {
+    async function fetchStatsPaged(params) {
+      const collected = [];
+      let offset = 0;
+      while (offset !== null) {
+        const qs = new URLSearchParams({ ...params, offset: String(offset), limit: '30' }).toString();
+        const res = await api('/api/admin/stats?' + qs);
+        collected.push(...(res.data.items || []));
+        offset = res.data.nextOffset ?? null;
+      }
+      return collected;
+    }
+
+    const domainPagesCache = new Map();
+
+    async function loadDomainPages(host, force = false) {
+      if (!force && domainPagesCache.has(host)) return domainPagesCache.get(host);
+      const pages = await fetchStatsPaged({ type: 'page', host });
+      pages.sort((a, b) => Number(b.page_pv || 0) - Number(a.page_pv || 0));
+      domainPagesCache.set(host, pages);
+      return pages;
+    }
+
+    async function selectDomain(host, shouldRender = true) {
       selectedDomain = host;
       const d = getDomainsGrouped().find(x => x.name === host);
       draftSitePv = d ? d.sitePv : 0;
       draftSiteUv = d ? d.siteUv : 0;
-      draftPages = d ? d.pages.map(p => ({ ...p })) : [];
       pageIndex = 0;
       searchQuery = '';
-      if (shouldRender) renderAnalyticsView();
+      if (shouldRender) {
+        draftPages = [];
+        renderAnalyticsView();
+      }
+      const pages = await loadDomainPages(host, false);
+      if (selectedDomain === host) {
+        draftPages = pages.map(p => ({ key: p.key, path: p.path || '/', views: Number(p.page_pv || 0) }));
+        if (shouldRender) renderAnalyticsView();
+      }
     }
 
     function renderOverview() {
@@ -646,7 +676,8 @@
       document.getElementById('sidebarStoreInfo').textContent = (statusData.blobConnected ? 'Blob: ' : 'Disconnected: ') + statusData.blobStoreName;
       document.getElementById('overviewEnvMeta').textContent = dict.envMeta(statusData);
 
-      const topPages = allItems.filter(i => i.kind === 'page').slice(0, 5);
+      const topSite = getDomainsGrouped()[0];
+      const topPages = topSite ? (domainPagesCache.get(topSite.name) || []).slice(0, 5) : [];
       const topEl = document.getElementById('topPagesList');
       topEl.innerHTML = topPages.length
         ? topPages.map(p => `
@@ -948,40 +979,32 @@
     };
 
     async function loadAllData() {
-      const sRes = await api('/api/admin/status');
+      domainPagesCache.clear();
+      const [sRes, sites] = await Promise.all([
+        api('/api/admin/status'),
+        fetchStatsPaged({ type: 'site' }),
+      ]);
       statusData = sRes.data;
+      allItems = sites;
       renderOverview();
 
-      const dRes = await api('/api/admin/stats?type=all');
-      allItems = dRes.data.items || [];
-      renderOverview();
+      const topSite = getDomainsGrouped()[0];
+      if (topSite) {
+        await loadDomainPages(topSite.name, true);
+        renderOverview();
+      }
       if (currentView === 'domains') renderDomainsView();
       if (currentView === 'analytics') {
-        if (selectedDomain) selectDomain(selectedDomain, true);
+        if (selectedDomain) await selectDomain(selectedDomain, true);
         else renderAnalyticsView();
       }
     }
 
     async function init() {
       try {
-        const sRes = await api('/api/admin/status');
-        statusData = sRes.data;
+        await loadAllData();
         document.getElementById('loginView').classList.add('hidden');
         document.getElementById('appShell').classList.remove('hidden');
-        renderOverview();
-
-        try {
-          const dRes = await api('/api/admin/stats?type=all');
-          allItems = dRes.data.items || [];
-          renderOverview();
-          if (currentView === 'domains') renderDomainsView();
-          if (currentView === 'analytics') {
-            if (selectedDomain) selectDomain(selectedDomain, true);
-            else renderAnalyticsView();
-          }
-        } catch (statsErr) {
-          document.getElementById('overviewEnvMeta').textContent = '加载明细失败: ' + statsErr.message;
-        }
       } catch (err) {
         if (err.status === 401) {
           document.getElementById('loginView').classList.remove('hidden');
@@ -989,7 +1012,7 @@
         } else {
           document.getElementById('loginView').classList.add('hidden');
           document.getElementById('appShell').classList.remove('hidden');
-          document.getElementById('overviewEnvMeta').textContent = '加载状态失败: ' + err.message;
+          document.getElementById('overviewEnvMeta').textContent = '加载数据失败: ' + err.message;
         }
       }
     }
@@ -1026,8 +1049,20 @@
 
     document.getElementById('exportBtn').addEventListener('click', async () => {
       const includeUv = document.getElementById('exportIncludeUv').checked;
-      const res = await api('/api/admin/backup?includeUv=' + includeUv);
-      const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+      const msg = document.getElementById('backupMsg');
+      const allEntries = {};
+      let offset = 0;
+      let exportedAt = new Date().toISOString();
+      while (offset !== null) {
+        const res = await api(`/api/admin/backup?includeUv=${includeUv}&offset=${offset}&limit=30`);
+        Object.assign(allEntries, res.data.entries || {});
+        exportedAt = res.data.exportedAt || exportedAt;
+        msg.textContent = `${Object.keys(allEntries).length} / ${res.data.total || Object.keys(allEntries).length} ...`;
+        offset = res.data.nextOffset ?? null;
+      }
+      msg.textContent = '';
+      const payload = { exportedAt, version: 2, count: Object.keys(allEntries).length, entries: allEntries };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = 'eocount-backup-' + new Date().toISOString().slice(0, 10) + '.json';

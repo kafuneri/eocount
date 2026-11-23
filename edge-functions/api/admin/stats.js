@@ -34,6 +34,8 @@ export async function onRequestGet({ request, env }) {
     const type = url.searchParams.get('type') || 'all'; // 'site' | 'page' | 'all'
     const hostFilter = (url.searchParams.get('host') || '').trim().toLowerCase();
     const search = (url.searchParams.get('search') || '').trim().toLowerCase();
+    const offset = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10) || 0);
+    const limit = Math.min(50, Math.max(1, parseInt(url.searchParams.get('limit') || '30', 10) || 30));
 
     let prefix = 'sites/';
     if (hostFilter) {
@@ -41,7 +43,7 @@ export async function onRequestGet({ request, env }) {
       prefix = type === 'page' ? `sites/${safeHost}/pages/` : `sites/${safeHost}/`;
     }
 
-    const keys = [];
+    const allKeys = [];
     let cursor = undefined;
     do {
       const res = await listKeys(store, { prefix, cursor, limit: 100 });
@@ -49,14 +51,16 @@ export async function onRequestGet({ request, env }) {
         if (type === 'site' && !isSiteKey(k)) continue;
         if (type === 'page' && !isPageKey(k)) continue;
         if (type === 'all' && !isSiteKey(k) && !isPageKey(k)) continue;
-        keys.push(k);
+        allKeys.push(k);
       }
       cursor = res.complete ? undefined : res.cursor;
     } while (cursor);
 
-    const values = await mapConcurrent(keys, (k) => getJson(store, k), 8);
+    const pagedKeys = allKeys.slice(offset, offset + limit);
+    const nextOffset = offset + limit < allKeys.length ? offset + limit : null;
+    const values = await mapConcurrent(pagedKeys, (k) => getJson(store, k), 5);
     const items = [];
-    for (let i = 0; i < keys.length; i++) {
+    for (let i = 0; i < pagedKeys.length; i++) {
       const val = values[i];
       if (!val) continue;
       if (hostFilter && val.host?.toLowerCase() !== hostFilter) continue;
@@ -65,8 +69,8 @@ export async function onRequestGet({ request, env }) {
         if (!hay.includes(search)) continue;
       }
       items.push({
-        key: keys[i],
-        kind: isSiteKey(keys[i]) ? 'site' : 'page',
+        key: pagedKeys[i],
+        kind: isSiteKey(pagedKeys[i]) ? 'site' : 'page',
         ...val,
       });
     }
@@ -77,7 +81,10 @@ export async function onRequestGet({ request, env }) {
       return pvB - pvA;
     });
 
-    return jsonResponse({ status: 'success', data: { items, total: items.length } });
+    return jsonResponse({
+      status: 'success',
+      data: { items, total: allKeys.length, offset, nextOffset },
+    });
   } catch (err) {
     return jsonResponse({ status: 'error', message: err.message }, 500);
   }

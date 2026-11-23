@@ -31,24 +31,28 @@ export async function onRequestGet({ request, env }) {
     const store = getStorage(env);
     const url = new URL(request.url);
     const includeUv = url.searchParams.get('includeUv') === 'true';
+    const offset = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10) || 0);
+    const limit = Math.min(50, Math.max(1, parseInt(url.searchParams.get('limit') || '30', 10) || 30));
 
-    const keys = [];
+    const allKeys = [];
     let cursor = undefined;
     do {
       const res = await listKeys(store, { prefix: 'sites/', cursor, limit: 100 });
       for (const k of res.keys) {
         if (isSiteKey(k) || isPageKey(k) || (includeUv && isUvKey(k))) {
-          keys.push(k);
+          allKeys.push(k);
         }
       }
       cursor = res.complete ? undefined : res.cursor;
     } while (cursor);
 
-    const values = await mapConcurrent(keys, (k) => getJson(store, k), 8);
+    const pagedKeys = allKeys.slice(offset, offset + limit);
+    const nextOffset = offset + limit < allKeys.length ? offset + limit : null;
+    const values = await mapConcurrent(pagedKeys, (k) => getJson(store, k), 5);
     const entries = {};
-    for (let i = 0; i < keys.length; i++) {
+    for (let i = 0; i < pagedKeys.length; i++) {
       if (values[i] !== null) {
-        entries[keys[i]] = values[i];
+        entries[pagedKeys[i]] = values[i];
       }
     }
 
@@ -57,6 +61,8 @@ export async function onRequestGet({ request, env }) {
       data: {
         exportedAt: new Date().toISOString(),
         version: 2,
+        total: allKeys.length,
+        nextOffset,
         count: Object.keys(entries).length,
         entries,
       },

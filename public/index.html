@@ -63,6 +63,11 @@
       display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 999px;
       font-size: 0.84rem; font-weight: 600; transition: all 0.15s; cursor: pointer;
       border: 1px solid var(--border-strong); background: var(--surface); color: var(--text);
+      white-space: nowrap; flex-shrink: 0;
+    }
+    @media (max-width: 640px) {
+      .header-actions { gap: 6px; }
+      .pill-btn { padding: 5px 10px; font-size: 0.78rem; }
     }
     .pill-btn:hover { border-color: var(--eo-blue); color: var(--eo-blue); }
     .pill-btn.primary {

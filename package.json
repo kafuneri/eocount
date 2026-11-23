@@ -1,5 +1,5 @@
 {
-  "name": "eo-vercount",
+  "name": "eocount",
   "version": "1.0.0",
   "private": true,
   "description": "Lightweight website PV/UV counter on Tencent Cloud EdgeOne Makers (KV), compatible with Vercount and Busuanzi",

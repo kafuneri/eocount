@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EO Vercount 管理后台</title>
+  <title>Eocount 管理后台</title>
   <style>
     :root {
       --bg: #f6f9ff;
@@ -120,7 +120,7 @@
       <div>
         <div class="brand">
           <span class="brand-dot"></span>
-          <h1>EO Vercount 管理后台</h1>
+          <h1>Eocount 管理后台</h1>
         </div>
         <a href="/">← 返回首页演示</a>
       </div>
@@ -367,7 +367,7 @@
       const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = 'eo-vercount-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+      a.download = 'eocount-backup-' + new Date().toISOString().slice(0, 10) + '.json';
       a.click();
     });
 

@@ -220,7 +220,7 @@
       const res = await api('/api/admin/status');
       const d = res.data;
       document.getElementById('statusGrid').innerHTML = [
-        ['KV 状态', d.kvConnected ? '已连接 (' + d.kvBindingName + ')' : '未连接'],
+        ['Blob 状态', d.blobConnected ? '强一致 (' + d.blobStoreName + ')' : '未连接'],
         ['接入站点数', d.summary.totalSites],
         ['统计页面数', d.summary.totalPages],
         ['全站总 PV', d.summary.totalSitePv],

@@ -10,10 +10,10 @@ import {
 import {
   deleteKey,
   getJson,
-  getKvNamespace,
+  getStorage,
   listKeys,
   putJson,
-} from '../../_shared/kv-adapter.js';
+} from '../../_shared/blob-adapter.js';
 
 export function onRequestOptions() {
   return corsPreflightResponse();
@@ -26,7 +26,7 @@ export async function onRequestGet({ request, env }) {
   }
 
   try {
-    const kv = getKvNamespace(env);
+    const kv = getStorage(env);
     const url = new URL(request.url);
     const type = url.searchParams.get('type') || 'all'; // 'site' | 'page' | 'all'
     const hostFilter = (url.searchParams.get('host') || '').trim().toLowerCase();
@@ -95,7 +95,7 @@ export async function onRequestPut({ request, env }) {
   }
 
   try {
-    const kv = getKvNamespace(env);
+    const kv = getStorage(env);
     const now = Date.now();
 
     // Support creating/updating by raw URL or by existing key
@@ -182,7 +182,7 @@ export async function onRequestDelete({ request, env }) {
   }
 
   try {
-    const kv = getKvNamespace(env);
+    const kv = getStorage(env);
     await deleteKey(kv, key);
     return jsonResponse({ status: 'success', message: 'Deleted', data: { key } });
   } catch (err) {

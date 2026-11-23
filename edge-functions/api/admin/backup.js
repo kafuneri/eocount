@@ -9,10 +9,10 @@ import {
 } from '../../_shared/hash.js';
 import {
   getJson,
-  getKvNamespace,
+  getStorage,
   listKeys,
   putJson,
-} from '../../_shared/kv-adapter.js';
+} from '../../_shared/blob-adapter.js';
 
 export function onRequestOptions() {
   return corsPreflightResponse();
@@ -25,7 +25,7 @@ export async function onRequestGet({ request, env }) {
   }
 
   try {
-    const kv = getKvNamespace(env);
+    const kv = getStorage(env);
     const url = new URL(request.url);
     const includeUv = url.searchParams.get('includeUv') === 'true';
 
@@ -90,7 +90,7 @@ export async function onRequestPost({ request, env }) {
   }
 
   try {
-    const kv = getKvNamespace(env);
+    const kv = getStorage(env);
     const now = Date.now();
     let imported = 0;
     let skipped = 0;

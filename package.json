@@ -11,5 +11,8 @@
   },
   "devDependencies": {
     "terser": "^5.36.0"
+  },
+  "dependencies": {
+    "@edgeone/pages-blob": "^0.0.19"
   }
 }

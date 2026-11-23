@@ -2,7 +2,7 @@
  * Core PV/UV counter business logic backed by EdgeOne KV.
  */
 
-import { getJson, putJson } from './kv-adapter.js';
+import { getJson, putJson } from './blob-adapter.js';
 import {
   buildPageKey,
   buildSiteKey,

@@ -2,7 +2,7 @@
  * Shared handler for /api/v1/log and /api/v2/log.
  */
 
-import { getKvNamespace } from './kv-adapter.js';
+import { getStorage } from './blob-adapter.js';
 import { normalizeUrl } from './hash.js';
 import {
   corsPreflightResponse,
@@ -54,7 +54,7 @@ export async function handleLogGet(context, version = 'v2') {
   }
 
   try {
-    const kv = getKvNamespace(env);
+    const kv = getStorage(env);
     const counts = await getCounts(kv, normalized.host, normalized.path);
     return formatResponse(version, counts, 'Data retrieved successfully', 200);
   } catch (err) {
@@ -97,7 +97,7 @@ export async function handleLogPost(context, version = 'v2') {
   }
 
   try {
-    const kv = getKvNamespace(env);
+    const kv = getStorage(env);
     const ua = request.headers.get('user-agent') || '';
     const skipBot = env?.FILTER_BOTS !== 'false' && isBotUserAgent(ua);
 

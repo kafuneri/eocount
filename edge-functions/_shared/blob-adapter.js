@@ -4,6 +4,29 @@
 
 import { getStore } from '@edgeone/pages-blob';
 
+export async function withRetry(fn, retries = 2) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (attempt === retries) throw err;
+      await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+    }
+  }
+}
+
+export async function mapConcurrent(items, fn, concurrency = 8) {
+  const results = new Array(items.length);
+  for (let i = 0; i < items.length; i += concurrency) {
+    const chunk = items.slice(i, i + concurrency);
+    const chunkRes = await Promise.all(chunk.map((item, idx) => fn(item, i + idx)));
+    for (let j = 0; j < chunkRes.length; j++) {
+      results[i + j] = chunkRes[j];
+    }
+  }
+  return results;
+}
+
 export function getStorage(env) {
   const storeName = env?.BLOB_STORE_NAME || 'eocount-dat';
   const options = {
@@ -18,17 +41,17 @@ export function getStorage(env) {
 }
 
 export async function getJson(store, key) {
-  const value = await store.get(key, { type: 'json', consistency: 'strong' });
+  const value = await withRetry(() => store.get(key, { type: 'json', consistency: 'strong' }));
   if (value === null || value === undefined) return null;
   return value;
 }
 
 export async function putJson(store, key, data) {
-  await store.setJSON(key, data);
+  await withRetry(() => store.setJSON(key, data));
 }
 
 export async function deleteKey(store, key) {
-  await store.delete(key);
+  await withRetry(() => store.delete(key));
 }
 
 export async function listKeys(store, { prefix = '', cursor, limit = 100 } = {}) {
@@ -41,7 +64,7 @@ export async function listKeys(store, { prefix = '', cursor, limit = 100 } = {})
   if (cursor) {
     options.cursor = cursor;
   }
-  const result = await store.list(options);
+  const result = await withRetry(() => store.list(options));
   const keys = (result?.blobs || [])
     .map((item) => item?.key)
     .filter(Boolean);

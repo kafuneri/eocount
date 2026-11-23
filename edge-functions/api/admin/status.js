@@ -1,5 +1,5 @@
 import { requireAdmin } from '../../_shared/auth.js';
-import { getJson, getStorage, listKeys } from '../../_shared/blob-adapter.js';
+import { getJson, getStorage, listKeys, mapConcurrent } from '../../_shared/blob-adapter.js';
 import { corsPreflightResponse, jsonResponse } from '../../_shared/cors.js';
 import { isPageKey, isSiteKey } from '../../_shared/hash.js';
 
@@ -40,7 +40,7 @@ export async function onRequestGet({ request, env }) {
 
     blobConnected = true;
     totalSites = siteKeys.length;
-    const siteObjects = await Promise.all(siteKeys.map((k) => getJson(store, k)));
+    const siteObjects = await mapConcurrent(siteKeys, (k) => getJson(store, k), 8);
     for (const item of siteObjects) {
       if (item) {
         totalSitePv += Number(item.site_pv || 0);

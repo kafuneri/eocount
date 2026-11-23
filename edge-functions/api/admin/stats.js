@@ -14,6 +14,7 @@ import {
   getJson,
   getStorage,
   listKeys,
+  mapConcurrent,
   putJson,
 } from '../../_shared/blob-adapter.js';
 
@@ -53,7 +54,7 @@ export async function onRequestGet({ request, env }) {
       cursor = res.complete ? undefined : res.cursor;
     } while (cursor);
 
-    const values = await Promise.all(keys.map((k) => getJson(store, k)));
+    const values = await mapConcurrent(keys, (k) => getJson(store, k), 8);
     const items = [];
     for (let i = 0; i < keys.length; i++) {
       const val = values[i];

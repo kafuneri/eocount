@@ -3,195 +3,605 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EO Vercount — EdgeOne Blob 强一致网站访问量统计</title>
+  <title>EO Vercount — 腾讯云 EdgeOne 网站流量计数器</title>
   <script defer src="/js"></script>
   <style>
     :root {
-      --bg: #0b0f19;
-      --card: #131926;
-      --border: #232c40;
-      --text: #e6edf7;
-      --muted: #8b9bb4;
-      --accent: #3b82f6;
-      --accent-hover: #2563eb;
-      --green: #10b981;
+      --bg: #f6f9ff;
+      --surface: #ffffff;
+      --surface-glass: rgba(255, 255, 255, 0.78);
+      --border: rgba(37, 99, 235, 0.14);
+      --border-strong: rgba(37, 99, 235, 0.28);
+      --text: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #64748b;
+      --eo-blue: #0052d9;
+      --eo-blue-light: #2563eb;
+      --eo-cyan: #0ea5e9;
+      --eo-soft: rgba(0, 82, 217, 0.08);
+      --code-bg: #0f172a;
+      --code-text: #e2e8f0;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
       background: var(--bg);
       color: var(--text);
       line-height: 1.6;
       min-height: 100vh;
-      padding: 32px 16px;
-    }
-    .container { max-width: 780px; margin: 0 auto; }
-    header {
       display: flex;
-      justify-content: space-between;
+      flex-direction: column;
+    }
+    a { color: inherit; text-decoration: none; }
+    .container {
+      width: 100%;
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    /* Header */
+    header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 40;
+      height: 64px;
+      background: rgba(246, 249, 255, 0.82);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .header-inner {
+      height: 100%;
+      display: flex;
       align-items: center;
-      margin-bottom: 28px;
-      gap: 12px;
-      flex-wrap: wrap;
+      justify-content: space-between;
     }
-    h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em; }
-    .badge {
-      display: inline-block;
-      font-size: 0.75rem;
-      padding: 3px 10px;
-      border-radius: 999px;
-      background: rgba(16, 185, 129, 0.14);
-      color: var(--green);
-      border: 1px solid rgba(16, 185, 129, 0.35);
-      margin-left: 8px;
-      vertical-align: middle;
-    }
-    .nav-btn {
+    .brand-group { display: flex; align-items: center; gap: 32px; }
+    .brand {
+      font-size: 1.2rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
       color: var(--text);
-      text-decoration: none;
-      background: var(--card);
-      border: 1px solid var(--border);
-      padding: 8px 14px;
-      border-radius: 8px;
-      font-size: 0.9rem;
-      transition: border-color 0.2s;
     }
-    .nav-btn:hover { border-color: var(--accent); }
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 22px;
-      margin-bottom: 20px;
+    .brand-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--eo-blue), var(--eo-cyan));
+      box-shadow: 0 0 10px rgba(0, 82, 217, 0.45);
     }
-    .card h2 { font-size: 1.1rem; margin-bottom: 14px; }
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 14px;
-      margin-bottom: 16px;
-    }
-    @media (max-width: 600px) {
-      .stats-grid { grid-template-columns: 1fr; }
-    }
-    .stat-box {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 16px;
-      text-align: center;
-    }
-    .stat-label { font-size: 0.85rem; color: var(--muted); margin-bottom: 6px; }
-    .stat-value { font-size: 2rem; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
-    .actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-    button {
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      padding: 9px 16px;
-      border-radius: 8px;
+    nav { display: flex; align-items: center; gap: 24px; }
+    nav a {
       font-size: 0.9rem;
       font-weight: 500;
-      cursor: pointer;
+      color: var(--text-secondary);
+      transition: color 0.15s;
     }
-    button:hover { background: var(--accent-hover); }
-    button.secondary {
-      background: transparent;
-      border: 1px solid var(--border);
+    nav a:hover { color: var(--eo-blue); }
+    @media (max-width: 640px) { nav { display: none; } }
+
+    .header-actions { display: flex; align-items: center; gap: 10px; }
+    .pill-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 16px;
+      border-radius: 999px;
+      font-size: 0.86rem;
+      font-weight: 600;
+      transition: all 0.15s;
+      cursor: pointer;
+      border: 1px solid var(--border-strong);
+      background: var(--surface);
       color: var(--text);
     }
-    button.secondary:hover { border-color: var(--accent); }
-    .hint { font-size: 0.85rem; color: var(--muted); }
-    pre {
-      background: #080b12;
+    .pill-btn:hover { border-color: var(--eo-blue); color: var(--eo-blue); }
+    .pill-btn.primary {
+      background: linear-gradient(135deg, var(--eo-blue), var(--eo-blue-light));
+      border-color: transparent;
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(0, 82, 217, 0.25);
+    }
+    .pill-btn.primary:hover {
+      color: #fff;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(0, 82, 217, 0.35);
+    }
+
+    /* Hero */
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 132px 0 88px;
+      border-bottom: 1px solid var(--border);
+      background: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.12), transparent 65%);
+    }
+    .blob-glow {
+      position: absolute;
+      border-radius: 999px;
+      filter: blur(95px);
+      pointer-events: none;
+      opacity: 0.45;
+    }
+    .blob-1 { width: 380px; height: 380px; top: 40px; left: 50%; transform: translateX(-50%); background: rgba(37, 99, 235, 0.25); }
+    .blob-2 { width: 300px; height: 300px; top: 90px; left: 26%; background: rgba(14, 165, 233, 0.22); }
+    .blob-3 { width: 280px; height: 280px; top: 70px; right: 22%; background: rgba(99, 102, 241, 0.18); }
+
+    .hero-inner {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      max-width: 780px;
+      margin: 0 auto;
+    }
+    .eo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      background: var(--eo-soft);
+      border: 1px solid var(--border-strong);
+      color: var(--eo-blue);
+      font-size: 0.78rem;
+      font-weight: 600;
+      margin-bottom: 18px;
+    }
+    .hero h1 {
+      font-size: clamp(2.6rem, 6vw, 4.75rem);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 1.05;
+      background: linear-gradient(135deg, #0f172a 30%, var(--eo-blue) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 16px;
+    }
+    .hero-sub {
+      font-size: clamp(1.05rem, 2vw, 1.3rem);
+      color: var(--text-secondary);
+      font-weight: 500;
+      margin-bottom: 12px;
+    }
+    .hero-desc {
+      font-size: 0.98rem;
+      color: var(--text-muted);
+      line-height: 1.8;
+    }
+
+    /* Vercount 3-Pill Stats Bar */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      width: 100%;
+      margin-top: 38px;
+    }
+    .stat-pill {
+      background: var(--surface-glass);
+      backdrop-filter: blur(10px);
       border: 1px solid var(--border);
+      padding: 22px 18px;
+      border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+      transition: transform 0.18s, border-color 0.18s;
+    }
+    .stat-pill:hover {
+      transform: translateY(-2px);
+      border-color: var(--border-strong);
+    }
+    @media (min-width: 768px) {
+      .stat-pill.left { border-top-left-radius: 100px; border-bottom-left-radius: 100px; padding-left: 34px; }
+      .stat-pill.right { border-top-right-radius: 100px; border-bottom-right-radius: 100px; padding-right: 34px; }
+    }
+    @media (max-width: 640px) {
+      .stats-bar { grid-template-columns: 1fr; }
+    }
+    .stat-pill h3 {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .stat-pill p {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--eo-blue);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 26px;
+      flex-wrap: wrap;
+    }
+    .timing-hint {
+      margin-top: 12px;
+      font-size: 0.84rem;
+      color: var(--text-muted);
+      min-height: 20px;
+    }
+
+    /* Sections */
+    section.block {
+      padding: 80px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-head {
+      text-align: center;
+      max-width: 620px;
+      margin: 0 auto 44px;
+    }
+    .section-head h2 {
+      font-size: clamp(1.8rem, 3.5vw, 2.6rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 8px;
+    }
+    .section-head p { color: var(--text-muted); font-size: 1rem; }
+
+    /* Tabs & Usage Steps */
+    .tabs {
+      display: inline-flex;
+      padding: 4px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin: 0 auto 28px;
+    }
+    .tabs-wrap { display: flex; justify-content: center; }
+    .tab-btn {
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      padding: 8px 18px;
       border-radius: 8px;
-      padding: 14px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .tab-btn.active {
+      background: var(--eo-soft);
+      color: var(--eo-blue);
+    }
+    .tab-panel { display: none; max-width: 820px; margin: 0 auto; }
+    .tab-panel.active { display: flex; flex-direction: column; gap: 20px; }
+
+    .step-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.03);
+    }
+    .step-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      gap: 10px;
+    }
+    .step-left { display: flex; align-items: center; gap: 12px; }
+    .step-num {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--eo-soft);
+      color: var(--eo-blue);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+    .step-title h3 { font-size: 1.08rem; font-weight: 700; }
+    .step-desc { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 12px; }
+    .copy-btn {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      padding: 5px 12px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .copy-btn:hover { border-color: var(--eo-blue); color: var(--eo-blue); }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-text);
+      padding: 16px;
+      border-radius: 10px;
       overflow-x: auto;
       font-size: 0.85rem;
-      color: #c9d8ef;
-      margin-top: 8px;
+      line-height: 1.6;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    /* Features Grid */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px;
+    }
+    @media (max-width: 960px) { .features-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 560px) { .features-grid { grid-template-columns: 1fr; } }
+
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 22px;
+      transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s;
+    }
+    .feature-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--border-strong);
+      box-shadow: 0 10px 24px rgba(0, 82, 217, 0.07);
+    }
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: var(--eo-soft);
+      color: var(--eo-blue);
+      display: flex;
+      align-items: center;
+      justify-content: center;
       margin-bottom: 14px;
     }
-    .code-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 0.85rem;
-      color: var(--muted);
+    .feature-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
+    .feature-card p { font-size: 0.86rem; color: var(--text-muted); line-height: 1.55; }
+
+    /* Footer */
+    footer {
+      margin-top: auto;
+      padding: 24px 0;
+      background: var(--surface);
     }
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 0.84rem;
+      color: var(--text-muted);
+    }
+    .footer-inner a:hover { color: var(--eo-blue); }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <div>
-        <h1>EO Vercount <span class="badge">EdgeOne Blob · 强一致</span></h1>
-        <p class="hint">国内低延迟 · 零外部数据库 · 兼容 Vercount &amp; 不蒜子</p>
+  <header>
+    <div class="container header-inner">
+      <div class="brand-group">
+        <a href="/" class="brand">
+          <span class="brand-dot"></span>
+          <span>EO Vercount</span>
+        </a>
+        <nav>
+          <a href="#usage">Usage</a>
+          <a href="#features">Features</a>
+        </nav>
       </div>
-      <a class="nav-btn" href="/admin.html">进入管理后台 →</a>
-    </header>
+      <div class="header-actions">
+        <a class="pill-btn" href="https://github.com/kafuneri/functions-kv" target="_blank" rel="noopener noreferrer">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub
+        </a>
+        <a class="pill-btn primary" href="/admin.html">Dashboard →</a>
+      </div>
+    </div>
+  </header>
 
-    <section class="card">
-      <h2>实时计数演示（当前页面）</h2>
-      <div class="stats-grid">
-        <div class="stat-box">
-          <div class="stat-label">本文总阅读量 (page_pv)</div>
-          <div class="stat-value"><span id="vercount_value_page_pv">Loading</span></div>
+  <main>
+    <section class="hero">
+      <div class="blob-glow blob-1"></div>
+      <div class="blob-glow blob-2"></div>
+      <div class="blob-glow blob-3"></div>
+      <div class="container hero-inner">
+        <div class="eo-badge">EdgeOne Pages · Blob 强一致模式</div>
+        <h1>EO Vercount</h1>
+        <p class="hero-sub">Straightforward, Fast, and Reliable Website Counter.</p>
+        <p class="hero-desc">
+          网站流量计数器，简单、快速、可靠<br />
+          不蒜子计数器完美替代方案 · 由腾讯云 EdgeOne 提供强一致存储支持
+        </p>
+
+        <div class="stats-bar">
+          <div class="stat-pill left">
+            <h3>Page View</h3>
+            <p><span id="vercount_value_page_pv">Loading</span></p>
+          </div>
+          <div class="stat-pill">
+            <h3>Site Total Visits</h3>
+            <p><span id="vercount_value_site_pv">Loading</span></p>
+          </div>
+          <div class="stat-pill right">
+            <h3>Site Total Visitors</h3>
+            <p><span id="vercount_value_site_uv">Loading</span></p>
+          </div>
         </div>
-        <div class="stat-box">
-          <div class="stat-label">本站总访问量 (site_pv)</div>
-          <div class="stat-value"><span id="vercount_value_site_pv">Loading</span></div>
+
+        <div class="hero-actions">
+          <button id="refreshBtn" class="pill-btn primary" type="button">手动触发 +1（测试刷新）</button>
+          <a class="pill-btn" href="#usage">接入指南 ↓</a>
         </div>
-        <div class="stat-box">
-          <div class="stat-label">本站总访客数 (site_uv)</div>
-          <div class="stat-value"><span id="vercount_value_site_uv">Loading</span></div>
-        </div>
-      </div>
-      <div class="actions">
-        <button id="refreshBtn" type="button">手动触发 +1（测试一致性）</button>
-        <span class="hint" id="timingHint">等待首次统计请求...</span>
+        <div id="timingHint" class="timing-hint">等待首次统计请求...</div>
       </div>
     </section>
 
-    <section class="card">
-      <h2>快速接入指南</h2>
-      <div class="code-head">
-        <span>1. 在页面引入统计脚本（支持自定义域名）</span>
-        <button class="secondary" type="button" onclick="copySnippet('scriptCode', this)">复制</button>
-      </div>
-      <pre id="scriptCode"></pre>
+    <section id="usage" class="block">
+      <div class="container">
+        <div class="section-head">
+          <h2>Usage</h2>
+          <p>选择适合你的接入方式，兼容 Vercount 与不蒜子原有标签</p>
+        </div>
 
-      <div class="code-head">
-        <span>2. 在需要展示数字的位置插入标签（Vercount 风格）</span>
-        <button class="secondary" type="button" onclick="copySnippet('vcTags', this)">复制</button>
-      </div>
-      <pre id="vcTags">&lt;span id="vercount_container_page_pv"&gt;本文阅读量 &lt;span id="vercount_value_page_pv"&gt;Loading&lt;/span&gt; 次&lt;/span&gt;
-&lt;span id="vercount_container_site_pv"&gt;本站总访问 &lt;span id="vercount_value_site_pv"&gt;Loading&lt;/span&gt; 次&lt;/span&gt;
-&lt;span id="vercount_container_site_uv"&gt;本站总访客 &lt;span id="vercount_value_site_uv"&gt;Loading&lt;/span&gt; 人&lt;/span&gt;</pre>
+        <div class="tabs-wrap">
+          <div class="tabs">
+            <button class="tab-btn active" data-tab="html" type="button">HTML (Vercount)</button>
+            <button class="tab-btn" data-tab="busuanzi" type="button">不蒜子兼容</button>
+            <button class="tab-btn" data-tab="spa" type="button">SPA / PJAX</button>
+          </div>
+        </div>
 
-      <div class="code-head">
-        <span>3. 或者继续保留不蒜子原有标签（无缝兼容）</span>
-        <button class="secondary" type="button" onclick="copySnippet('bszTags', this)">复制</button>
-      </div>
-      <pre id="bszTags">&lt;span id="busuanzi_container_page_pv"&gt;本文阅读量 &lt;span id="busuanzi_value_page_pv"&gt;&lt;/span&gt; 次&lt;/span&gt;
+        <div id="tab-html" class="tab-panel active">
+          <div class="step-card">
+            <div class="step-title">
+              <div class="step-left"><span class="step-num">01</span><h3>引入统计脚本</h3></div>
+              <button class="copy-btn" type="button" onclick="copyCode('codeScript1', this)">复制</button>
+            </div>
+            <p class="step-desc">在网站 HTML 的 &lt;head&gt; 或 &lt;body&gt; 中加入以下脚本：</p>
+            <pre id="codeScript1"></pre>
+          </div>
+          <div class="step-card">
+            <div class="step-title">
+              <div class="step-left"><span class="step-num">02</span><h3>插入展示标签</h3></div>
+              <button class="copy-btn" type="button" onclick="copyCode('codeTagsVc', this)">复制</button>
+            </div>
+            <p class="step-desc">在需要显示阅读量、总访问量或总访客数的位置放入对应 ID：</p>
+            <pre id="codeTagsVc">本文总阅读量 &lt;span id="vercount_value_page_pv"&gt;Loading&lt;/span&gt; 次
+本站总访问量 &lt;span id="vercount_value_site_pv"&gt;Loading&lt;/span&gt; 次
+本站总访客数 &lt;span id="vercount_value_site_uv"&gt;Loading&lt;/span&gt; 人</pre>
+          </div>
+        </div>
+
+        <div id="tab-busuanzi" class="tab-panel">
+          <div class="step-card">
+            <div class="step-title">
+              <div class="step-left"><span class="step-num">01</span><h3>替换不蒜子脚本地址</h3></div>
+              <button class="copy-btn" type="button" onclick="copyCode('codeScript2', this)">复制</button>
+            </div>
+            <p class="step-desc">只需将原有的 busuanzi.ibruce.info 脚本替换为本服务地址，原有标签无需修改：</p>
+            <pre id="codeScript2"></pre>
+          </div>
+          <div class="step-card">
+            <div class="step-title">
+              <div class="step-left"><span class="step-num">02</span><h3>保留不蒜子原有 DOM 标签</h3></div>
+              <button class="copy-btn" type="button" onclick="copyCode('codeTagsBsz', this)">复制</button>
+            </div>
+            <p class="step-desc">支持自动填充 busuanzi_value_* 并恢复显示 busuanzi_container_* 容器：</p>
+            <pre id="codeTagsBsz">&lt;span id="busuanzi_container_page_pv"&gt;本文阅读量 &lt;span id="busuanzi_value_page_pv"&gt;&lt;/span&gt; 次&lt;/span&gt;
 &lt;span id="busuanzi_container_site_pv"&gt;本站总访问 &lt;span id="busuanzi_value_site_pv"&gt;&lt;/span&gt; 次&lt;/span&gt;
 &lt;span id="busuanzi_container_site_uv"&gt;本站总访客 &lt;span id="busuanzi_value_site_uv"&gt;&lt;/span&gt; 人&lt;/span&gt;</pre>
+          </div>
+        </div>
+
+        <div id="tab-spa" class="tab-panel">
+          <div class="step-card">
+            <div class="step-title">
+              <div class="step-left"><span class="step-num">01</span><h3>支持无刷新路由切换</h3></div>
+              <button class="copy-btn" type="button" onclick="copyCode('codeSpa', this)">复制</button>
+            </div>
+            <p class="step-desc">脚本内置监听 pjax:complete 与 astro:page-load；其他前端框架可在路由切换后手动调用：</p>
+            <pre id="codeSpa">// 在 Vue / React / Astro / PJAX 路由切换后调用
+if (typeof window.vercountFetch === 'function') {
+  window.vercountFetch();
+}</pre>
+          </div>
+        </div>
+      </div>
     </section>
-  </div>
+
+    <section id="features" class="block">
+      <div class="container">
+        <div class="section-head">
+          <h2>Features</h2>
+          <p>专为国内备案域名与自托管博客打造的无服务器统计服务</p>
+        </div>
+
+        <div class="features-grid">
+          <div class="feature-card">
+            <div class="feature-icon">⚡</div>
+            <h3>国内边缘加速</h3>
+            <p>托管于腾讯云 EdgeOne 国内边缘节点，彻底告别海外节点晚高峰抽风与 502 错误。</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">🔒</div>
+            <h3>Blob 强一致存储</h3>
+            <p>启用 consistency: "strong" 强一致读写，跨运营商（联通/电信）切换绝不丢数。</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">📡</div>
+            <h3>POST 精准上报</h3>
+            <p>使用 POST 请求传递当前 URL，克服传统 Referrer 在移动端与 Safari 下的丢失问题。</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">🛡️</div>
+            <h3>白名单与防刷</h3>
+            <p>支持 ALLOWED_DOMAINS 域名白名单校验与常见爬虫 User-Agent 只读过滤。</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">🔄</div>
+            <h3>双协议无缝兼容</h3>
+            <p>同时兼容 vercount_value_* 与 busuanzi_value_* 标签及 /api/v2/log、/api/v1/log。</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">🗂️</div>
+            <h3>零外部数据库</h3>
+            <p>无需额外维护 Redis 或 PostgreSQL，单项目全托管在 EdgeOne，几乎零维护成本。</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">👥</div>
+            <h3>64 桶 UV 去重</h3>
+            <p>基于 IP + UA 的 SHA-256 短哈希分桶去重，兼顾精度并极大节省 Blob 写入配额。</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">🛠️</div>
+            <h3>后台管理与迁移</h3>
+            <p>内置单管理员后台，支持可视化修改 PV/UV 基数与 JSON 一键导入导出备份。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container footer-inner">
+      <span>Powered by Tencent Cloud EdgeOne Pages &amp; Blob · EO Vercount</span>
+      <a href="/admin.html">Admin Dashboard</a>
+    </div>
+  </footer>
 
   <script>
     var origin = window.location.origin;
-    document.getElementById('scriptCode').textContent = '<script defer src="' + origin + '/js"><\/script>';
+    var tag = '<script defer src="' + origin + '/js"><\/script>';
+    document.getElementById('codeScript1').textContent = tag;
+    document.getElementById('codeScript2').textContent = tag;
 
-    function copySnippet(id, btn) {
+    function copyCode(id, btn) {
       var text = document.getElementById(id).textContent;
       navigator.clipboard.writeText(text).then(function () {
         var old = btn.textContent;
-        btn.textContent = '已复制';
+        btn.textContent = '已复制 ✓';
         setTimeout(function () { btn.textContent = old; }, 1500);
       });
     }
+
+    document.querySelectorAll('.tab-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('active'); });
+        document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
+        btn.classList.add('active');
+        document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      });
+    });
 
     document.getElementById('refreshBtn').addEventListener('click', async function () {
       var hint = document.getElementById('timingHint');
@@ -202,7 +612,7 @@
         var cost = Math.round(performance.now() - t0);
         hint.textContent = data
           ? '刷新完成，耗时 ' + cost + ' ms（page_pv=' + data.page_pv + ', site_pv=' + data.site_pv + ', site_uv=' + data.site_uv + '）'
-          : '请求失败或超时（已回退缓存）';
+          : '请求失败或超时（已回退本地缓存）';
       }
     });
   </script>

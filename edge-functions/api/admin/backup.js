@@ -133,7 +133,18 @@ export async function onRequestPost({ request, env }) {
     }
 
     const entriesList = Object.entries(entriesToWrite);
-    const BATCH_SIZE = 15;
+    const BATCH_SIZE = 5;
+
+    async function withRetry(fn, retries = 2) {
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+          return await fn();
+        } catch (err) {
+          if (attempt === retries) throw err;
+          await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+        }
+      }
+    }
 
     async function processEntry([key, incoming]) {
       if (!incoming || typeof incoming !== 'object') {
@@ -142,14 +153,14 @@ export async function onRequestPost({ request, env }) {
       }
 
       if (mode === 'overwrite') {
-        await putJson(store, key, { ...incoming, updatedAt: now });
+        await withRetry(() => putJson(store, key, { ...incoming, updatedAt: now }));
         imported++;
         return;
       }
 
-      const existing = await getJson(store, key);
+      const existing = await withRetry(() => getJson(store, key));
       if (!existing) {
-        await putJson(store, key, { ...incoming, updatedAt: now });
+        await withRetry(() => putJson(store, key, { ...incoming, updatedAt: now }));
         imported++;
         return;
       }
@@ -158,13 +169,13 @@ export async function onRequestPost({ request, env }) {
         const mergedPv = Math.max(Number(existing.site_pv || 0), Number(incoming.site_pv || 0));
         const mergedUv = Math.max(Number(existing.site_uv || 0), Number(incoming.site_uv || 0));
         if (mergedPv > Number(existing.site_pv || 0) || mergedUv > Number(existing.site_uv || 0)) {
-          await putJson(store, key, {
+          await withRetry(() => putJson(store, key, {
             ...existing,
             host: incoming.host || existing.host,
             site_pv: mergedPv,
             site_uv: mergedUv,
             updatedAt: now,
-          });
+          }));
           imported++;
         } else {
           skipped++;
@@ -172,13 +183,13 @@ export async function onRequestPost({ request, env }) {
       } else if (isPageKey(key)) {
         const mergedPv = Math.max(Number(existing.page_pv || 0), Number(incoming.page_pv || 0));
         if (mergedPv > Number(existing.page_pv || 0)) {
-          await putJson(store, key, {
+          await withRetry(() => putJson(store, key, {
             ...existing,
             host: incoming.host || existing.host,
             path: incoming.path || existing.path,
             page_pv: mergedPv,
             updatedAt: now,
-          });
+          }));
           imported++;
         } else {
           skipped++;
@@ -188,12 +199,12 @@ export async function onRequestPost({ request, env }) {
         const nextHashes = Array.isArray(incoming.hashes) ? incoming.hashes : [];
         const merged = Array.from(new Set([...prevHashes, ...nextHashes]));
         if (merged.length > prevHashes.length) {
-          await putJson(store, key, {
+          await withRetry(() => putJson(store, key, {
             ...existing,
             host: incoming.host || existing.host,
             hashes: merged,
             updatedAt: now,
-          });
+          }));
           imported++;
         } else {
           skipped++;

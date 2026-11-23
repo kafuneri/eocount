@@ -493,6 +493,7 @@
         confirmDelPage: p => `确认删除页面 ${p} 吗？`,
         rowsPerPage: '条/页', showingOf: (a, b) => `显示 ${a} / 共 ${b} 条`, pageOf: (p, t) => `第 ${p} / ${t} 页`,
         prevBtn: '上一页', nextBtn: '下一页',
+        loadingPages: (a, b) => b > 0 ? `正在加载页面明细：${a} / ${b}` : '正在加载页面明细...',
         backupTitle: '备份与历史数据导入', includeUvLabel: '导出时包含访客去重桶', exportBtn: '一键导出文件',
         modeMax: '取较大值合并', modeOverwrite: '强制覆盖', importBtn: '执行导入',
         importDone: (i, s) => `导入完成：更新 ${i} 条，跳过 ${s} 条`, importErr: '导入失败: ', loginErr: '登录失败: ',
@@ -523,6 +524,7 @@
         confirmDelPage: p => `Permanently delete monitored page "${p}"?`,
         rowsPerPage: 'rows per page', showingOf: (a, b) => `Showing ${a} of ${b} results`, pageOf: (p, t) => `${p} of ${t}`,
         prevBtn: 'Previous', nextBtn: 'Next',
+        loadingPages: (a, b) => b > 0 ? `Loading pages: ${a} / ${b}` : 'Loading pages...',
         backupTitle: 'JSON Backup & Historical Import', includeUvLabel: 'Include UV dedup buckets on export', exportBtn: 'Export JSON',
         modeMax: 'Merge Max (Math.max)', modeOverwrite: 'Overwrite', importBtn: 'Import',
         importDone: (i, s) => `Imported ${i} entries, skipped ${s}`, importErr: 'Import failed: ', loginErr: 'Login failed: ',
@@ -543,6 +545,7 @@
     let sortDir = 'desc';
     let pageIndex = 0;
     let pageSize = 10;
+    let loadingPagesProgress = null; // { host, loaded, total } | null
 
     function safeDecode(s) {
       try { return decodeURIComponent(s); } catch { return s; }
@@ -621,13 +624,14 @@
       return list;
     }
 
-    async function fetchStatsPaged(params) {
+    async function fetchStatsPaged(params, onProgress) {
       const collected = [];
       let offset = 0;
       while (offset !== null) {
         const qs = new URLSearchParams({ ...params, offset: String(offset), limit: '30' }).toString();
         const res = await api('/api/admin/stats?' + qs);
         collected.push(...(res.data.items || []));
+        if (onProgress) onProgress(collected.length, res.data.total ?? collected.length);
         offset = res.data.nextOffset ?? null;
       }
       return collected;
@@ -635,9 +639,9 @@
 
     const domainPagesCache = new Map();
 
-    async function loadDomainPages(host, force = false) {
+    async function loadDomainPages(host, force = false, onProgress = null) {
       if (!force && domainPagesCache.has(host)) return domainPagesCache.get(host);
-      const pages = await fetchStatsPaged({ type: 'page', host });
+      const pages = await fetchStatsPaged({ type: 'page', host }, onProgress);
       pages.sort((a, b) => Number(b.page_pv || 0) - Number(a.page_pv || 0));
       domainPagesCache.set(host, pages);
       return pages;
@@ -650,12 +654,22 @@
       draftSiteUv = d ? d.siteUv : 0;
       pageIndex = 0;
       searchQuery = '';
-      if (shouldRender) {
+      if (!domainPagesCache.has(host)) {
+        loadingPagesProgress = { host, loaded: 0, total: 0 };
         draftPages = [];
-        renderAnalyticsView();
+        if (shouldRender) renderAnalyticsView();
       }
-      const pages = await loadDomainPages(host, false);
+      const pages = await loadDomainPages(host, false, (loaded, total) => {
+        if (selectedDomain === host) {
+          loadingPagesProgress = { host, loaded, total };
+          const barText = document.getElementById('pagesProgressText');
+          const barFill = document.getElementById('pagesProgressFill');
+          if (barText) barText.textContent = I18N[currentLang].loadingPages(loaded, total);
+          if (barFill && total > 0) barFill.style.width = Math.min(100, Math.round((loaded / total) * 100)) + '%';
+        }
+      });
       if (selectedDomain === host) {
+        loadingPagesProgress = null;
         draftPages = pages.map(p => ({ key: p.key, path: p.path || '/', views: Number(p.page_pv || 0) }));
         if (shouldRender) renderAnalyticsView();
       }
@@ -800,7 +814,16 @@
           </form>
         </div>
 
-        <div id="tableWrap">${buildTableHtml(slice, filtered.length, totalPages)}</div>
+        <div id="tableWrap">${
+          loadingPagesProgress && loadingPagesProgress.host === selectedDomain
+            ? `<div class="card" style="text-align:center;padding:32px 24px;">
+                <div id="pagesProgressText" style="font-size:0.9rem;font-weight:600;color:var(--text);margin-bottom:14px;">${dict.loadingPages(loadingPagesProgress.loaded, loadingPagesProgress.total)}</div>
+                <div style="width:100%;max-width:380px;height:8px;margin:0 auto;border-radius:999px;background:var(--eo-soft);overflow:hidden;">
+                  <div id="pagesProgressFill" style="height:100%;width:${loadingPagesProgress.total > 0 ? Math.min(100, Math.round((loadingPagesProgress.loaded / loadingPagesProgress.total) * 100)) : 12}%;background:linear-gradient(135deg,var(--eo-blue),#0ea5e9);border-radius:999px;transition:width 0.25s ease;"></div>
+                </div>
+              </div>`
+            : buildTableHtml(slice, filtered.length, totalPages)
+        }</div>
       `;
     }
 

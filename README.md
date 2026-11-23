@@ -1,38 +1,70 @@
-# EdgeOne Pages Functions: KV Store
+<div align="right">
+  <a href="README_zh-CN.md">简体中文</a>
+</div>
 
-This example demonstrates how to use EdgeOne Pages Functions to store and retrieve data from the KV store.
+# Eocount
 
-## Deploy
+A lightweight, serverless website traffic counter (PV/UV) built on **Tencent Cloud EdgeOne Pages (Makers)** and **EdgeOne Blob** (`consistency: "strong"`). Designed as a fast, zero-database, drop-in replacement for **Vercount** and **Busuanzi**.
 
-[![Deploy with EdgeOne Pages](https://cdnstatic.tencentcs.com/edgeone/pages/deploy.svg)](https://edgeone.ai/pages/new?from=github&template=functions-kv)
+## Features
 
-More Templates: [EdgeOne Pages](https://edgeone.ai/pages/templates)
+- **Strong Consistency**: Powered by EdgeOne Blob (`consistency: "strong"`), ensuring zero lost counts across different ISPs and edge PoPs.
+- **Zero External Database**: Runs entirely on EdgeOne Edge Functions + EdgeOne Blob + static HTML. No external Redis or PostgreSQL required.
+- **Drop-in Vercount & Busuanzi Compatibility**:
+  - Supports both `vercount_value_*` and `busuanzi_value_*` DOM IDs as well as `*_container_*` visibility toggling.
+  - Exposes `/api/v2/log` (Vercount v2 format) and `/api/v1/log` (flat JSON).
+  - Supports `window.vercountFetch()` and `pjax:complete` / `astro:page-load` for SPAs.
+- **64-Bucket UV Deduplication**: Uses Web Crypto `SHA-256(host|ip|ua)` short hashes sharded across 64 buckets (`sites/<host>/uv/<bucket>.json`) to minimize Blob write operations.
+- **Built-in Admin Dashboard (`/admin.html`)**: Stateless HMAC-SHA256 cookie auth, live overview, inline editing/deletion, and JSON export/import (`Math.max` merge or overwrite).
+- **Security**: `ALLOWED_DOMAINS` domain whitelist (supports `*.example.com`) and read-only bot User-Agent filtering.
 
-## Getting Started
+## Quick Usage
 
-First, run the development server:
+### 1. Include the Script
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```html
+<script defer src="https://your-domain.example.com/js"></script>
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Add Counter Elements
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+**Vercount style:**
+```html
+Page Views: <span id="vercount_value_page_pv">Loading</span>
+Site Visits: <span id="vercount_value_site_pv">Loading</span>
+Site Visitors: <span id="vercount_value_site_uv">Loading</span>
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+**Busuanzi style (drop-in compatible):**
+```html
+<span id="busuanzi_container_page_pv">Page Views: <span id="busuanzi_value_page_pv"></span></span>
+<span id="busuanzi_container_site_pv">Site Visits: <span id="busuanzi_value_site_pv"></span></span>
+<span id="busuanzi_container_site_uv">Site Visitors: <span id="busuanzi_value_site_uv"></span></span>
+```
 
-## Learn More
+## Environment Variables
 
-To learn more about Next.js, take a look at the following resources:
+Configure these in your EdgeOne Pages project settings:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Variable | Required | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `ADMIN_PASSWORD` | Yes | - | Password for `/admin.html` |
+| `ADMIN_SESSION_SECRET` | Recommended | `ADMIN_PASSWORD` | Secret key for HMAC-SHA256 session cookies |
+| `BLOB_STORE_NAME` | No | `vercount-data` | EdgeOne Blob store name (auto-created on first write) |
+| `ALLOWED_DOMAINS` | Recommended | Empty (allow all) | Comma-separated allowed domains (supports `*.example.com`) |
+| `FILTER_BOTS` | No | `true` | Return read-only counts for known bots/crawlers |
+| `AUTO_MIGRATE_BUSUANZI` | No | `false` | Fetch initial baseline from Busuanzi on first visit |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
+## Local Development
+
+```bash
+npm install
+npm run build
+npm run validate
+npx edgeone makers dev
+npm run preview
+```
+
+## License
+
+MIT

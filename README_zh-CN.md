@@ -1,3 +1,7 @@
+<div align="right">
+  <a href="README.md">English</a>
+</div>
+
 # Eocount — EdgeOne Blob 强一致网站访问量统计
 
 基于 **腾讯云 EdgeOne Pages (Makers)** 的单管理员、零外部数据库、国内低延迟网站访问量统计服务，使用 **EdgeOne Blob（`consistency: "strong"` 强一致模式）** 存储，100% 兼容 **Vercount** 与 **不蒜子（Busuanzi）** 前端标签及 `/api/v2/log`、`/api/v1/log` 接口。

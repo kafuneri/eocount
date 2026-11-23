@@ -9,7 +9,7 @@
     :root {
       --bg: #f6f9ff;
       --surface: #ffffff;
-      --surface-glass: rgba(255, 255, 255, 0.78);
+      --surface-glass: rgba(255, 255, 255, 0.8);
       --border: rgba(37, 99, 235, 0.14);
       --border-strong: rgba(37, 99, 235, 0.28);
       --text: #0f172a;
@@ -35,6 +35,9 @@
     }
     a { color: inherit; text-decoration: none; }
     .container { width: 100%; max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+    .icon { width: 16px; height: 16px; flex-shrink: 0; }
+    .icon-sm { width: 14px; height: 14px; flex-shrink: 0; }
+    .icon-lg { width: 20px; height: 20px; flex-shrink: 0; }
 
     header {
       position: fixed; top: 0; left: 0; right: 0; z-index: 40; height: 64px;
@@ -83,7 +86,7 @@
       align-items: center; text-align: center; max-width: 780px; margin: 0 auto;
     }
     .eo-badge {
-      display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px;
+      display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 999px;
       background: var(--eo-soft); border: 1px solid var(--border-strong); color: var(--eo-blue);
       font-size: 0.78rem; font-weight: 600; margin-bottom: 18px;
     }
@@ -126,6 +129,7 @@
       border: 1px solid var(--border); border-radius: 12px; margin: 0 auto 28px;
     }
     .tab-btn {
+      display: inline-flex; align-items: center; gap: 7px;
       border: none; background: transparent; color: var(--text-secondary);
       padding: 8px 18px; border-radius: 8px; font-size: 0.88rem; font-weight: 600; cursor: pointer;
     }
@@ -146,6 +150,7 @@
     .step-title h3 { font-size: 1.08rem; font-weight: 700; }
     .step-desc { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 12px; }
     .copy-btn {
+      display: inline-flex; align-items: center; gap: 5px;
       background: var(--bg); border: 1px solid var(--border); color: var(--text-secondary);
       padding: 5px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; cursor: pointer;
     }
@@ -165,7 +170,7 @@
     }
     .feature-card:hover { transform: translateY(-2px); border-color: var(--border-strong); box-shadow: 0 10px 24px rgba(0, 82, 217, 0.07); }
     .feature-icon {
-      width: 40px; height: 40px; border-radius: 12px; background: var(--eo-soft); color: var(--eo-blue);
+      width: 40px; height: 40px; border-radius: 999px; background: var(--eo-soft); color: var(--eo-blue);
       display: flex; align-items: center; justify-content: center; margin-bottom: 14px;
     }
     .feature-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
@@ -190,12 +195,18 @@
         </nav>
       </div>
       <div class="header-actions">
-        <button class="pill-btn" id="langToggle" type="button">EN / 中文</button>
+        <button class="pill-btn" id="langToggle" type="button">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+          <span id="langToggleLabel">EN</span>
+        </button>
         <a class="pill-btn" href="https://github.com/kafuneri/eocount" target="_blank" rel="noopener noreferrer">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
           GitHub
         </a>
-        <a class="pill-btn primary" href="/admin.html" data-i18n="navDashboard">Dashboard →</a>
+        <a class="pill-btn primary" href="/admin.html">
+          <span data-i18n="navDashboard">Dashboard</span>
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </a>
       </div>
     </div>
   </header>
@@ -206,7 +217,10 @@
       <div class="blob-glow blob-2"></div>
       <div class="blob-glow blob-3"></div>
       <div class="container hero-inner">
-        <div class="eo-badge" data-i18n="heroBadge">EdgeOne Pages · Strong Consistency Blob</div>
+        <div class="eo-badge">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>
+          <span data-i18n="heroBadge">EdgeOne Pages · Strong Consistency Blob</span>
+        </div>
         <h1>Eocount</h1>
         <p class="hero-sub">Straightforward, Fast, and Reliable Website Counter.</p>
         <p class="hero-desc" data-i18n-html="heroDesc">
@@ -230,8 +244,14 @@
         </div>
 
         <div class="hero-actions">
-          <button id="refreshBtn" class="pill-btn primary" type="button" data-i18n="btnTrigger">手动触发 +1（测试刷新）</button>
-          <a class="pill-btn" href="#usage" data-i18n="btnGuide">接入指南 ↓</a>
+          <button id="refreshBtn" class="pill-btn primary" type="button">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+            <span data-i18n="btnTrigger">Trigger +1 (Test Refresh)</span>
+          </button>
+          <a class="pill-btn" href="#usage">
+            <span data-i18n="btnGuide">Get Started</span>
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+          </a>
         </div>
         <div id="timingHint" class="timing-hint" data-i18n="hintIdle">等待首次统计请求...</div>
       </div>
@@ -246,9 +266,18 @@
 
         <div class="tabs-wrap">
           <div class="tabs">
-            <button class="tab-btn active" data-tab="html" type="button" data-i18n="tabHtml">HTML (Vercount 兼容)</button>
-            <button class="tab-btn" data-tab="busuanzi" type="button" data-i18n="tabBsz">不蒜子兼容</button>
-            <button class="tab-btn" data-tab="spa" type="button">SPA / PJAX</button>
+            <button class="tab-btn active" data-tab="html" type="button">
+              <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              <span data-i18n="tabHtml">HTML (Vercount)</span>
+            </button>
+            <button class="tab-btn" data-tab="busuanzi" type="button">
+              <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              <span data-i18n="tabBsz">Busuanzi Compatible</span>
+            </button>
+            <button class="tab-btn" data-tab="spa" type="button">
+              <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="m4.93 4.93 2.83 2.83"/><path d="m16.24 16.24 2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="m4.93 19.07 2.83-2.83"/><path d="m16.24 7.76 2.83-2.83"/></svg>
+              <span>SPA / PJAX</span>
+            </button>
           </div>
         </div>
 
@@ -256,7 +285,10 @@
           <div class="step-card">
             <div class="step-title">
               <div class="step-left"><span class="step-num">01</span><h3 data-i18n="step1Title">引入统计脚本</h3></div>
-              <button class="copy-btn" type="button" onclick="copyCode('codeScript1', this)" data-i18n="btnCopy">复制</button>
+              <button class="copy-btn" type="button" onclick="copyCode('codeScript1', this)">
+                <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                <span data-i18n="btnCopy">Copy</span>
+              </button>
             </div>
             <p class="step-desc" data-i18n="step1Desc">在网站 HTML 的 &lt;head&gt; 或 &lt;body&gt; 中加入以下脚本：</p>
             <pre id="codeScript1"></pre>
@@ -264,7 +296,10 @@
           <div class="step-card">
             <div class="step-title">
               <div class="step-left"><span class="step-num">02</span><h3 data-i18n="step2Title">插入展示标签</h3></div>
-              <button class="copy-btn" type="button" onclick="copyCode('codeTagsVc', this)" data-i18n="btnCopy">复制</button>
+              <button class="copy-btn" type="button" onclick="copyCode('codeTagsVc', this)">
+                <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                <span data-i18n="btnCopy">Copy</span>
+              </button>
             </div>
             <p class="step-desc" data-i18n="step2Desc">在需要显示阅读量、总访问量或总访客数的位置放入对应 ID：</p>
             <pre id="codeTagsVc">Page Views: &lt;span id="vercount_value_page_pv"&gt;Loading&lt;/span&gt;
@@ -277,7 +312,10 @@ Site Visitors: &lt;span id="vercount_value_site_uv"&gt;Loading&lt;/span&gt;</pre
           <div class="step-card">
             <div class="step-title">
               <div class="step-left"><span class="step-num">01</span><h3 data-i18n="bsz1Title">替换不蒜子脚本地址</h3></div>
-              <button class="copy-btn" type="button" onclick="copyCode('codeScript2', this)" data-i18n="btnCopy">复制</button>
+              <button class="copy-btn" type="button" onclick="copyCode('codeScript2', this)">
+                <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                <span data-i18n="btnCopy">Copy</span>
+              </button>
             </div>
             <p class="step-desc" data-i18n="bsz1Desc">只需将原有的 busuanzi.ibruce.info 脚本替换为本服务地址，原有标签无需修改：</p>
             <pre id="codeScript2"></pre>
@@ -285,7 +323,10 @@ Site Visitors: &lt;span id="vercount_value_site_uv"&gt;Loading&lt;/span&gt;</pre
           <div class="step-card">
             <div class="step-title">
               <div class="step-left"><span class="step-num">02</span><h3 data-i18n="bsz2Title">保留不蒜子原有 DOM 标签</h3></div>
-              <button class="copy-btn" type="button" onclick="copyCode('codeTagsBsz', this)" data-i18n="btnCopy">复制</button>
+              <button class="copy-btn" type="button" onclick="copyCode('codeTagsBsz', this)">
+                <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                <span data-i18n="btnCopy">Copy</span>
+              </button>
             </div>
             <p class="step-desc" data-i18n="bsz2Desc">支持自动填充 busuanzi_value_* 并恢复显示 busuanzi_container_* 容器：</p>
             <pre id="codeTagsBsz">&lt;span id="busuanzi_container_page_pv"&gt;Page Views: &lt;span id="busuanzi_value_page_pv"&gt;&lt;/span&gt;&lt;/span&gt;
@@ -298,7 +339,10 @@ Site Visitors: &lt;span id="vercount_value_site_uv"&gt;Loading&lt;/span&gt;</pre
           <div class="step-card">
             <div class="step-title">
               <div class="step-left"><span class="step-num">01</span><h3 data-i18n="spaTitle">支持无刷新路由切换</h3></div>
-              <button class="copy-btn" type="button" onclick="copyCode('codeSpa', this)" data-i18n="btnCopy">复制</button>
+              <button class="copy-btn" type="button" onclick="copyCode('codeSpa', this)">
+                <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                <span data-i18n="btnCopy">Copy</span>
+              </button>
             </div>
             <p class="step-desc" data-i18n="spaDesc">脚本内置监听 pjax:complete 与 astro:page-load；其他前端框架可在路由切换后手动调用：</p>
             <pre id="codeSpa">// Call after route navigation in Vue / React / Astro / PJAX
@@ -319,42 +363,58 @@ if (typeof window.eocountFetch === 'function') {
 
         <div class="features-grid">
           <div class="feature-card">
-            <div class="feature-icon">⚡</div>
+            <div class="feature-icon">
+              <svg class="icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>
+            </div>
             <h3 data-i18n="f1Title">国内边缘加速</h3>
             <p data-i18n="f1Desc">托管于腾讯云 EdgeOne 国内边缘节点，彻底告别海外节点晚高峰抽风与 502 错误。</p>
           </div>
           <div class="feature-card">
-            <div class="feature-icon">🔒</div>
+            <div class="feature-icon">
+              <svg class="icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+            </div>
             <h3 data-i18n="f2Title">Blob 强一致存储</h3>
             <p data-i18n="f2Desc">启用 consistency: "strong" 强一致读写，跨运营商（联通/电信）切换绝不丢数。</p>
           </div>
           <div class="feature-card">
-            <div class="feature-icon">📡</div>
+            <div class="feature-icon">
+              <svg class="icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+            </div>
             <h3 data-i18n="f3Title">POST 精准上报</h3>
             <p data-i18n="f3Desc">使用 POST 请求传递当前 URL，克服传统 Referrer 在移动端与 Safari 下的丢失问题。</p>
           </div>
           <div class="feature-card">
-            <div class="feature-icon">🛡️</div>
+            <div class="feature-icon">
+              <svg class="icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+            </div>
             <h3 data-i18n="f4Title">白名单与防刷</h3>
             <p data-i18n="f4Desc">支持 ALLOWED_DOMAINS 域名白名单校验与常见爬虫 User-Agent 只读过滤。</p>
           </div>
           <div class="feature-card">
-            <div class="feature-icon">🔄</div>
+            <div class="feature-icon">
+              <svg class="icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            </div>
             <h3 data-i18n="f5Title">双协议无缝兼容</h3>
             <p data-i18n="f5Desc">同时兼容 vercount_value_* 与 busuanzi_value_* 标签及 /api/v2/log、/api/v1/log。</p>
           </div>
           <div class="feature-card">
-            <div class="feature-icon">🗂️</div>
+            <div class="feature-icon">
+              <svg class="icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg>
+            </div>
             <h3 data-i18n="f6Title">零外部数据库</h3>
             <p data-i18n="f6Desc">无需额外维护 Redis 或 PostgreSQL，单项目全托管在 EdgeOne，几乎零维护成本。</p>
           </div>
           <div class="feature-card">
-            <div class="feature-icon">👥</div>
+            <div class="feature-icon">
+              <svg class="icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
             <h3 data-i18n="f7Title">64 桶 UV 去重</h3>
             <p data-i18n="f7Desc">基于 IP + UA 的 SHA-256 短哈希分桶去重，兼顾精度并极大节省 Blob 写入配额。</p>
           </div>
           <div class="feature-card">
-            <div class="feature-icon">🛠️</div>
+            <div class="feature-icon">
+              <svg class="icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+            </div>
             <h3 data-i18n="f8Title">后台管理与迁移</h3>
             <p data-i18n="f8Desc">内置单管理员后台，支持可视化修改 PV/UV 基数与 JSON 一键导入导出备份。</p>
           </div>
@@ -373,11 +433,11 @@ if (typeof window.eocountFetch === 'function') {
   <script>
     var I18N = {
       zh: {
-        navUsage: '使用指南', navFeatures: '核心特性', navDashboard: '管理后台 →',
+        navUsage: '使用指南', navFeatures: '核心特性', navDashboard: '管理后台',
         heroBadge: 'EdgeOne Pages · Blob 强一致模式',
         heroDesc: '网站流量计数器，简单、快速、可靠<br />不蒜子计数器完美替代方案 · 由腾讯云 EdgeOne 提供强一致存储支持',
         statPagePv: '本文阅读量 (Page View)', statSitePv: '本站总访问 (Site Visits)', statSiteUv: '本站总访客 (Site Visitors)',
-        btnTrigger: '手动触发 +1（测试刷新）', btnGuide: '接入指南 ↓',
+        btnTrigger: '手动触发 +1（测试刷新）', btnGuide: '接入指南',
         hintIdle: '等待首次统计请求...', hintLoading: '正在请求 /api/v2/log ...',
         hintDone: function (ms, d) { return '刷新完成，耗时 ' + ms + ' ms（page_pv=' + d.page_pv + ', site_pv=' + d.site_pv + ', site_uv=' + d.site_uv + '）'; },
         hintFail: '请求失败或超时（已回退本地缓存）',
@@ -388,7 +448,7 @@ if (typeof window.eocountFetch === 'function') {
         bsz1Title: '替换不蒜子脚本地址', bsz1Desc: '只需将原有的 busuanzi.ibruce.info 脚本替换为本服务地址，原有标签无需修改：',
         bsz2Title: '保留不蒜子原有 DOM 标签', bsz2Desc: '支持自动填充 busuanzi_value_* 并恢复显示 busuanzi_container_* 容器：',
         spaTitle: '支持无刷新路由切换', spaDesc: '脚本内置监听 pjax:complete 与 astro:page-load；其他前端框架可在路由切换后手动调用：',
-        btnCopy: '复制', btnCopied: '已复制 ✓',
+        btnCopy: '复制', btnCopied: '已复制',
         featTitle: 'Features / 核心特性', featSub: '专为国内备案域名与自托管博客打造的无服务器统计服务',
         f1Title: '国内边缘加速', f1Desc: '托管于腾讯云 EdgeOne 国内边缘节点，彻底告别海外节点晚高峰抽风与 502 错误。',
         f2Title: 'Blob 强一致存储', f2Desc: '启用 consistency: "strong" 强一致读写，跨运营商（联通/电信）切换绝不丢数。',
@@ -401,11 +461,11 @@ if (typeof window.eocountFetch === 'function') {
         footerAdmin: '管理后台',
       },
       en: {
-        navUsage: 'Usage', navFeatures: 'Features', navDashboard: 'Dashboard →',
+        navUsage: 'Usage', navFeatures: 'Features', navDashboard: 'Dashboard',
         heroBadge: 'EdgeOne Pages · Strong Consistency Blob',
         heroDesc: 'Simple, Fast, and Reliable Website Traffic Counter.<br />Drop-in replacement for Busuanzi &amp; Vercount · Powered by Tencent Cloud EdgeOne.',
         statPagePv: 'Page View', statSitePv: 'Site Total Visits', statSiteUv: 'Site Total Visitors',
-        btnTrigger: 'Trigger +1 (Test Refresh)', btnGuide: 'Get Started ↓',
+        btnTrigger: 'Trigger +1 (Test Refresh)', btnGuide: 'Get Started',
         hintIdle: 'Waiting for initial counter request...', hintLoading: 'Requesting /api/v2/log ...',
         hintDone: function (ms, d) { return 'Done in ' + ms + ' ms (page_pv=' + d.page_pv + ', site_pv=' + d.site_pv + ', site_uv=' + d.site_uv + ')'; },
         hintFail: 'Request failed or timed out (using cached value)',
@@ -416,7 +476,7 @@ if (typeof window.eocountFetch === 'function') {
         bsz1Title: 'Replace the Busuanzi script URL', bsz1Desc: 'Simply replace busuanzi.ibruce.info with your Eocount script URL:',
         bsz2Title: 'Keep existing Busuanzi DOM tags', bsz2Desc: 'Automatically populates busuanzi_value_* and shows busuanzi_container_* elements:',
         spaTitle: 'SPA / PJAX Route Transitions', spaDesc: 'Automatically listens to pjax:complete & astro:page-load, or call manually:',
-        btnCopy: 'Copy', btnCopied: 'Copied ✓',
+        btnCopy: 'Copy', btnCopied: 'Copied',
         featTitle: 'Features', featSub: 'Serverless traffic counter built for EdgeOne Pages & self-hosted blogs',
         f1Title: 'Edge Acceleration', f1Desc: 'Runs on Tencent Cloud EdgeOne global & mainland edge nodes with low latency.',
         f2Title: 'Strong Consistency Blob', f2Desc: 'Uses consistency: "strong" so cross-ISP requests never lose increments.',
@@ -437,7 +497,7 @@ if (typeof window.eocountFetch === 'function') {
       localStorage.setItem('eocount:lang', lang);
       document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
       var dict = I18N[lang];
-      document.getElementById('langToggle').textContent = lang === 'zh' ? 'EN' : '中文';
+      document.getElementById('langToggleLabel').textContent = lang === 'zh' ? 'EN' : '中文';
       document.querySelectorAll('[data-i18n]').forEach(function (el) {
         var k = el.getAttribute('data-i18n');
         if (dict[k] !== undefined) el.textContent = dict[k];
@@ -459,9 +519,10 @@ if (typeof window.eocountFetch === 'function') {
 
     function copyCode(id, btn) {
       var text = document.getElementById(id).textContent;
+      var label = btn.querySelector('span');
       navigator.clipboard.writeText(text).then(function () {
-        btn.textContent = I18N[currentLang].btnCopied;
-        setTimeout(function () { btn.textContent = I18N[currentLang].btnCopy; }, 1500);
+        if (label) label.textContent = I18N[currentLang].btnCopied;
+        setTimeout(function () { if (label) label.textContent = I18N[currentLang].btnCopy; }, 1500);
       });
     }
 

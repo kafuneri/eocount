@@ -99,6 +99,53 @@ export async function onRequestPut({ request, env }) {
     const store = getStorage(env);
     const now = Date.now();
 
+    // Batch domain save: { domain | domainName, site_pv, site_uv, pageViews: [{ path, page_pv | views, key }] }
+    const rawDomain = body.domain || body.domainName;
+    if (rawDomain && typeof rawDomain === 'string') {
+      const norm = normalizeUrl(rawDomain.includes('://') ? rawDomain : `https://${rawDomain}/`);
+      if (!norm.valid) {
+        return jsonResponse({ status: 'error', message: norm.reason }, 400);
+      }
+
+      const siteKey = buildSiteKey(norm.host);
+      const existingSite = (await getJson(store, siteKey)) || {};
+      const siteData = {
+        host: norm.host,
+        site_pv: Number(body.site_pv ?? existingSite.site_pv ?? 0),
+        site_uv: Number(body.site_uv ?? existingSite.site_uv ?? 0),
+        updatedAt: now,
+      };
+      await putJson(store, siteKey, siteData);
+
+      const pageViews = Array.isArray(body.pageViews) ? body.pageViews : [];
+      const BATCH_SIZE = 15;
+      for (let i = 0; i < pageViews.length; i += BATCH_SIZE) {
+        const chunk = pageViews.slice(i, i + BATCH_SIZE);
+        await Promise.all(
+          chunk.map(async (pvItem) => {
+            if (!pvItem?.path) return;
+            const pageNorm = normalizeUrl(`https://${norm.host}${pvItem.path.startsWith('/') ? pvItem.path : '/' + pvItem.path}`);
+            const cleanPath = pageNorm.valid ? pageNorm.path : pvItem.path;
+            const pKey = isPageKey(pvItem.key)
+              ? pvItem.key
+              : buildPageKey(norm.host, await getPathHash16(cleanPath));
+            const pageData = {
+              host: norm.host,
+              path: cleanPath,
+              page_pv: Number(pvItem.page_pv ?? pvItem.views ?? 0),
+              updatedAt: now,
+            };
+            await putJson(store, pKey, pageData);
+          })
+        );
+      }
+
+      return jsonResponse({
+        status: 'success',
+        data: { host: norm.host, updatedPages: pageViews.length },
+      });
+    }
+
     if (body.url) {
       const norm = normalizeUrl(body.url);
       if (!norm.valid) {
@@ -175,13 +222,38 @@ export async function onRequestDelete({ request, env }) {
     return jsonResponse({ status: 'error', message: 'Invalid JSON body' }, 400);
   }
 
-  const key = body?.key;
-  if (!key || typeof key !== 'string') {
-    return jsonResponse({ status: 'error', message: 'Missing key' }, 400);
-  }
-
   try {
     const store = getStorage(env);
+
+    // Whole-domain delete: { domain }
+    if (body?.domain && typeof body.domain === 'string') {
+      const safeHost = sanitizeHostForKey(body.domain.trim());
+      const prefix = `sites/${safeHost}/`;
+      const keys = [];
+      let cursor = undefined;
+      do {
+        const res = await listKeys(store, { prefix, cursor, limit: 100 });
+        keys.push(...res.keys);
+        cursor = res.complete ? undefined : res.cursor;
+      } while (cursor);
+
+      const BATCH_SIZE = 15;
+      for (let i = 0; i < keys.length; i += BATCH_SIZE) {
+        await Promise.all(keys.slice(i, i + BATCH_SIZE).map((k) => deleteKey(store, k)));
+      }
+
+      return jsonResponse({
+        status: 'success',
+        message: 'Domain deleted',
+        data: { domain: body.domain, deleted: keys.length },
+      });
+    }
+
+    const key = body?.key;
+    if (!key || typeof key !== 'string') {
+      return jsonResponse({ status: 'error', message: 'Missing key or domain' }, 400);
+    }
+
     await deleteKey(store, key);
     return jsonResponse({ status: 'success', message: 'Deleted', data: { key } });
   } catch (err) {

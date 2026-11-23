@@ -40,8 +40,8 @@ export function getStorage(env) {
   return getStore(options);
 }
 
-export async function getJson(store, key) {
-  const value = await withRetry(() => store.get(key, { type: 'json', consistency: 'strong' }));
+export async function getJson(store, key, consistency = 'strong') {
+  const value = await withRetry(() => store.get(key, { type: 'json', consistency }));
   if (value === null || value === undefined) return null;
   return value;
 }

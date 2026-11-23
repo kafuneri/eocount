@@ -44,15 +44,15 @@ async function fetchBusuanziBaseline(host, path) {
   }
 }
 
-export async function getCounts(kv, host, path) {
+export async function getCounts(kv, host, path, consistency = 'strong') {
   const pathHash16 = await getPathHash16(path);
 
   const sKey = buildSiteKey(host);
   const pKey = buildPageKey(host, pathHash16);
 
   const [siteData, pageData] = await Promise.all([
-    getJson(kv, sKey),
-    getJson(kv, pKey),
+    getJson(kv, sKey, consistency),
+    getJson(kv, pKey, consistency),
   ]);
 
   return {
@@ -60,6 +60,30 @@ export async function getCounts(kv, host, path) {
     site_pv: Number(siteData?.site_pv || 0),
     page_pv: Number(pageData?.page_pv || 0),
   };
+}
+
+export async function recordVisitFast(kv, host, path, ip, ua, env, waitUntil) {
+  if (typeof waitUntil === 'function') {
+    const pathHash16 = await getPathHash16(path);
+    const sKey = buildSiteKey(host);
+    const pKey = buildPageKey(host, pathHash16);
+
+    const [fastSite, fastPage] = await Promise.all([
+      getJson(kv, sKey, 'eventual'),
+      getJson(kv, pKey, 'eventual'),
+    ]);
+
+    if (fastSite && fastPage) {
+      waitUntil(recordVisit(kv, host, path, ip, ua, env).catch(() => {}));
+      return {
+        site_uv: Math.max(1, Number(fastSite.site_uv || 0)),
+        site_pv: Number(fastSite.site_pv || 0) + 1,
+        page_pv: Number(fastPage.page_pv || 0) + 1,
+      };
+    }
+  }
+
+  return await recordVisit(kv, host, path, ip, ua, env);
 }
 
 export async function recordVisit(kv, host, path, ip, ua, env) {

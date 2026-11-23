@@ -11,7 +11,7 @@ import {
   isDomainAllowed,
   jsonResponse,
 } from './cors.js';
-import { getCounts, recordVisit } from './counter-service.js';
+import { getCounts, recordVisitFast } from './counter-service.js';
 
 function formatResponse(version, counts, message, status = 200) {
   if (version === 'v1') {
@@ -102,18 +102,20 @@ export async function handleLogPost(context, version = 'v2') {
     const skipBot = env?.FILTER_BOTS !== 'false' && isBotUserAgent(ua);
 
     if (skipBot) {
-      const counts = await getCounts(kv, normalized.host, normalized.path);
+      const counts = await getCounts(kv, normalized.host, normalized.path, 'eventual');
       return formatResponse(version, counts, 'Bot request (read-only)', 200);
     }
 
     const ip = getClientIp(request);
-    const counts = await recordVisit(
+    const waitUntil = typeof context.waitUntil === 'function' ? context.waitUntil.bind(context) : null;
+    const counts = await recordVisitFast(
       kv,
       normalized.host,
       normalized.path,
       ip,
       ua,
-      env
+      env,
+      waitUntil
     );
     return formatResponse(version, counts, 'Data updated successfully', 200);
   } catch (err) {

@@ -248,7 +248,7 @@
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
         <div style="display:flex;align-items:center;gap:8px;">
           <span class="brand-dot"></span>
-          <h1>Eocount Dashboard</h1>
+          <h1 data-i18n="loginTitle">Eocount Dashboard</h1>
         </div>
         <button class="btn secondary sm" id="langToggleLogin" type="button">EN</button>
       </div>
@@ -290,7 +290,7 @@
       </div>
       <div class="sidebar-footer">
         <div class="admin-meta">
-          <div class="name">Admin</div>
+          <div class="name" data-i18n="adminName">Admin</div>
           <div class="sub" id="sidebarStoreInfo">EdgeOne Blob</div>
         </div>
         <button class="btn secondary sm" id="logoutBtn" type="button" title="Sign Out">
@@ -469,36 +469,38 @@
   <script>
     const I18N = {
       zh: {
-        loginPrompt: '请输入管理员密码（ADMIN_PASSWORD）登录后台', loginBtn: '登录', backHome: '← 返回首页演示',
-        navOverview: '概览 (Overview)', navDomains: '站点 (Domains)', navAnalytics: '统计 (Analytics)', navBackup: '备份 (Backup)',
+        loginTitle: 'Eocount 管理后台', loginPrompt: '请输入管理员密码登录后台', loginBtn: '登录', backHome: '← 返回首页演示',
+        adminName: '管理员',
+        navOverview: '概览', navDomains: '站点', navAnalytics: '统计', navBackup: '备份',
         crumbHome: '首页', crumbDashboard: '控制台', syncBtn: '同步',
         titleOverview: '控制台概览', titleDomains: '站点管理', titleAnalytics: '访问统计', titleBackup: '备份与导入',
         backDashBtn: '返回概览',
-        cardPv: '总浏览量 (Page Views)', cardUv: '总访客数 (Unique Visitors)', cardDomains: '接入站点 (Domains)', cardPages: '统计页面 (Monitored Pages)',
+        cardPv: '总浏览量', cardUv: '总访客数', cardDomains: '接入站点', cardPages: '统计页面',
         across: n => `共 ${n} 个站点`, activeDomains: n => `${n} 个活跃站点`,
         quickDomainsTitle: '站点管理', quickDomainsDesc: '添加站点并查看各站点汇总数据',
-        quickAnalyticsTitle: '访问统计', quickAnalyticsDesc: '按站点查看、编辑或删除页面 PV 与全站 UV',
+        quickAnalyticsTitle: '访问统计', quickAnalyticsDesc: '按站点查看、编辑或删除页面与全站访问计数',
         quickGithubDesc: '查看 Eocount 项目源码与配置文档',
-        topPagesTitle: '热门页面 (Top Pages)', noPages: '暂无页面访问数据',
+        topPagesTitle: '热门页面', noPages: '暂无页面访问数据', viewsSuffix: ' 次浏览',
         addDomainTitle: '添加站点', addBtn: '添加', myDomainsTitle: '我的站点', noDomains: '暂无已记录站点，可先添加域名或等待接入访问。',
         viewAnalyticsBtn: '查看统计', deleteDomainBtn: '删除站点',
-        confirmDelDomain: d => `确认删除站点 ${d} 及其全部页面和 UV 数据吗？此操作不可恢复。`,
+        confirmDelDomain: d => `确认删除站点 ${d} 及其全部页面和访客数据吗？此操作不可恢复。`,
         selectDomainTitle: '选择站点', selectDomainEmpty: '请从上方选择一个站点查看并编辑统计数据。',
         saveChangesBtn: '保存修改', savingBtn: '保存中...', savedMsg: '保存成功',
-        siteOverviewLabel: 'SITE OVERVIEW', pageAnalyticsLabel: 'PAGE ANALYTICS', pagesSuffix: n => `(${n} 个页面)`,
+        siteOverviewLabel: '站点总览', pageAnalyticsLabel: '页面明细', pagesSuffix: n => `（共 ${n} 个页面）`,
         searchPh: '搜索路径...', addPagePh: '/posts/new-article', addPageBtn: '新增页面',
-        thPath: '路径 (Path)', thViews: '浏览量 (Views)',
+        thPath: '路径', thViews: '浏览量',
         menuView: '打开页面', menuSave: '保存此行', menuDelete: '删除页面',
         confirmDelPage: p => `确认删除页面 ${p} 吗？`,
         rowsPerPage: '条/页', showingOf: (a, b) => `显示 ${a} / 共 ${b} 条`, pageOf: (p, t) => `第 ${p} / ${t} 页`,
         prevBtn: '上一页', nextBtn: '下一页',
-        backupTitle: 'JSON 备份与历史数据导入', includeUvLabel: '导出时包含 UV 去重桶', exportBtn: '一键导出 JSON',
-        modeMax: '取较大值合并 (Math.max)', modeOverwrite: '强制覆盖', importBtn: '执行导入',
+        backupTitle: '备份与历史数据导入', includeUvLabel: '导出时包含访客去重桶', exportBtn: '一键导出文件',
+        modeMax: '取较大值合并', modeOverwrite: '强制覆盖', importBtn: '执行导入',
         importDone: (i, s) => `导入完成：更新 ${i} 条，跳过 ${s} 条`, importErr: '导入失败: ', loginErr: '登录失败: ',
-        envMeta: d => `存储模式: 强一致 (${d.blobStoreName}) | 域名白名单: ${d.allowedDomains || '未限制'} | 爬虫过滤: ${d.filterBots ? '开启' : '关闭'}`,
+        envMeta: d => `存储模式：强一致（${d.blobStoreName}） | 域名白名单：${d.allowedDomains || '未限制'} | 爬虫过滤：${d.filterBots ? '开启' : '关闭'}`,
       },
       en: {
-        loginPrompt: 'Enter ADMIN_PASSWORD to sign in', loginBtn: 'Sign In', backHome: '← Back to Home',
+        loginTitle: 'Eocount Dashboard', loginPrompt: 'Enter ADMIN_PASSWORD to sign in', loginBtn: 'Sign In', backHome: '← Back to Home',
+        adminName: 'Admin',
         navOverview: 'Overview', navDomains: 'Domains', navAnalytics: 'Analytics', navBackup: 'Backup',
         crumbHome: 'Home', crumbDashboard: 'Dashboard', syncBtn: 'Sync',
         titleOverview: 'Dashboard', titleDomains: 'Domains', titleAnalytics: 'Analytics', titleBackup: 'Backup & Import',
@@ -508,7 +510,7 @@
         quickDomainsTitle: 'Domains', quickDomainsDesc: 'Manage your domains and inspect site totals',
         quickAnalyticsTitle: 'Analytics', quickAnalyticsDesc: 'Update and manage your site & page analytics data',
         quickGithubDesc: 'View the source code of Eocount',
-        topPagesTitle: 'Top Pages', noPages: 'No page data found.',
+        topPagesTitle: 'Top Pages', noPages: 'No page data found.', viewsSuffix: ' views',
         addDomainTitle: 'Add a domain', addBtn: 'Add', myDomainsTitle: 'My domains', noDomains: 'No domains added yet.',
         viewAnalyticsBtn: 'View Analytics', deleteDomainBtn: 'Delete',
         confirmDelDomain: d => `Permanently delete domain "${d}" and all its pages & UV buckets?`,
@@ -653,7 +655,7 @@
                 <div class="domain">${escapeHtml(p.host || '')}</div>
                 <div class="path">${escapeHtml(safeDecode(p.path || '/'))}</div>
               </div>
-              <div class="views">${Number(p.page_pv || 0).toLocaleString()} views</div>
+              <div class="views">${Number(p.page_pv || 0).toLocaleString()}${dict.viewsSuffix}</div>
             </div>`).join('')
         : `<div class="empty-box">${dict.noPages}</div>`;
     }

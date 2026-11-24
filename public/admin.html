@@ -197,6 +197,15 @@
     .btn.ghost:hover { background: var(--eo-soft); color: var(--eo-blue); }
     .btn.danger-ghost { background: transparent; border: none; color: var(--danger); padding: 6px 10px; }
     .btn.danger-ghost:hover { background: var(--danger-soft); }
+    .btn.danger-soft { background: var(--danger-soft); border: 1px solid rgba(220, 38, 38, 0.22); color: var(--danger); }
+    .btn.danger-soft:hover { background: rgba(220, 38, 38, 0.14); border-color: var(--danger); }
+    .prune-bar {
+      display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;
+      background: var(--surface); border: 1px solid var(--border-strong);
+      border-radius: 8px; padding: 3px 4px 3px 10px;
+    }
+    .prune-label { font-size: 0.82rem; color: var(--text-secondary); white-space: nowrap; }
+    .prune-input { width: 58px; height: 28px; padding: 2px 6px; text-align: center; font-size: 0.84rem; font-variant-numeric: tabular-nums; }
     .btn.icon-only { padding: 6px 8px; }
     .btn.fav-active { color: #f59e0b; }
     .btn.fav-active:hover { background: rgba(245, 158, 11, 0.1); color: #d97706; }
@@ -525,6 +534,12 @@
         backupTitle: '备份与历史数据导入', includeUvLabel: '导出时包含访客去重桶', exportBtn: '一键导出文件',
         modeMax: '取较大值合并', modeOverwrite: '强制覆盖', importBtn: '执行导入',
         importDone: (i, s) => `导入完成：更新 ${i} 条，跳过 ${s} 条`, importErr: '导入失败: ', loginErr: '登录失败: ',
+        prunePrefix: '删除 <', pruneSuffix: '次访问量记录',
+        pruneBtn: n => n > 0 ? `清理 (${n})` : '清理',
+        pruningBtn: (done, total) => `清理中 ${done}/${total}...`,
+        pruneEmpty: t => `当前没有浏览量小于 ${t} 的路径记录`,
+        confirmPrune: (d, t, n, preview) => `确认删除站点 ${d} 下浏览量小于 ${t} 的 ${n} 条路径记录吗？\n\n${preview}\n\n此操作不可恢复（不会修改全站总浏览量）。`,
+        prunedMsg: (n, t) => `已清除 ${n} 条浏览量小于 ${t} 的路径记录`,
         envMeta: d => `存储模式：强一致（${d.blobStoreName}） | 域名白名单：${d.allowedDomains || '未限制'} | 爬虫过滤：${d.filterBots ? '开启' : '关闭'}`,
       },
       en: {
@@ -565,6 +580,12 @@
         backupTitle: 'JSON Backup & Historical Import', includeUvLabel: 'Include UV dedup buckets on export', exportBtn: 'Export JSON',
         modeMax: 'Merge Max (Math.max)', modeOverwrite: 'Overwrite', importBtn: 'Import',
         importDone: (i, s) => `Imported ${i} entries, skipped ${s}`, importErr: 'Import failed: ', loginErr: 'Login failed: ',
+        prunePrefix: 'Delete <', pruneSuffix: 'views',
+        pruneBtn: n => n > 0 ? `Prune (${n})` : 'Prune',
+        pruningBtn: (done, total) => `Pruning ${done}/${total}...`,
+        pruneEmpty: t => `No pages with fewer than ${t} views`,
+        confirmPrune: (d, t, n, preview) => `Permanently delete ${n} pages under "${d}" with fewer than ${t} views?\n\n${preview}\n\nThis cannot be undone (site total PV is unchanged).`,
+        prunedMsg: (n, t) => `Deleted ${n} pages with fewer than ${t} views`,
         envMeta: d => `Storage: Strong (${d.blobStoreName}) | Whitelist: ${d.allowedDomains || 'All'} | Bot Filter: ${d.filterBots ? 'On' : 'Off'}`,
       }
     };
@@ -582,6 +603,7 @@
     let sortDir = 'desc';
     let pageIndex = 0;
     let pageSize = 10;
+    let pruneThreshold = 10;
     let loadingPagesProgress = null; // { host, loaded, total } | null
     let showHiddenDomains = false;
     const dirtyPagePaths = new Set();
@@ -1031,10 +1053,23 @@
       const slice = filtered.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize);
 
       const curDomainObj = domains.find(d => d.name === selectedDomain);
+      const isLoadingPages = Boolean(loadingPagesProgress && loadingPagesProgress.host === selectedDomain);
+      const lowViewCount = isLoadingPages ? 0 : getPruneTargets(pruneThreshold).length;
       document.getElementById('analyticsBody').innerHTML = `
         <div class="page-header" style="margin-bottom:18px;">
           <h2 style="font-size:1.3rem;font-weight:700;">${escapeHtml(selectedDomain)}</h2>
-          <button class="btn" id="saveAllBtn" onclick="saveDomainChanges()" type="button">${dict.saveChangesBtn}</button>
+          <div class="row" style="gap:10px;align-items:center;">
+            <div class="prune-bar">
+              <span class="prune-label">${dict.prunePrefix}</span>
+              <input id="pruneThresholdInput" class="prune-input" type="number" min="1" value="${pruneThreshold}" oninput="onPruneThresholdInput(this.value)" ${isLoadingPages ? 'disabled' : ''} />
+              <span class="prune-label">${dict.pruneSuffix}</span>
+              <button class="btn danger-soft sm" id="pruneLowViewsBtn" onclick="pruneLowViewPages()" type="button" ${isLoadingPages ? 'disabled' : ''}>
+                <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                <span id="pruneBtnText">${dict.pruneBtn(lowViewCount)}</span>
+              </button>
+            </div>
+            <button class="btn" id="saveAllBtn" onclick="saveDomainChanges()" type="button">${dict.saveChangesBtn}</button>
+          </div>
         </div>
         <div id="analyticsSaveMsg" class="msg" style="margin-bottom:16px;"></div>
 
@@ -1168,11 +1203,28 @@
       renderTableOnly();
     };
 
+    function getPruneTargets(threshold = pruneThreshold) {
+      if (loadingPagesProgress && loadingPagesProgress.host === selectedDomain) return [];
+      const t = Math.max(1, parseInt(threshold, 10) || 1);
+      return draftPages.filter(p => Number(p.views || 0) < t && p.key);
+    }
+
+    window.updatePruneBtnCount = function () {
+      const span = document.getElementById('pruneBtnText');
+      if (span) span.textContent = I18N[currentLang].pruneBtn(getPruneTargets(pruneThreshold).length);
+    };
+
+    window.onPruneThresholdInput = function (val) {
+      pruneThreshold = Math.max(1, parseInt(val || 1, 10) || 1);
+      updatePruneBtnCount();
+    };
+
     window.updateDraftPageByIdx = function (idx, val) {
       const item = currentPageSlice[idx];
       if (item) {
         item.views = Math.max(0, parseInt(val || 0, 10));
         dirtyPagePaths.add(item.path);
+        updatePruneBtnCount();
       }
     };
 
@@ -1279,6 +1331,59 @@
       }
       await loadAllData();
       selectDomain(selectedDomain, true);
+    };
+
+    window.pruneLowViewPages = async function () {
+      if (!selectedDomain || (loadingPagesProgress && loadingPagesProgress.host === selectedDomain)) return;
+      const dict = I18N[currentLang];
+      const threshold = Math.max(1, parseInt(pruneThreshold || 10, 10) || 1);
+      const targets = getPruneTargets(threshold);
+      const msgEl = document.getElementById('analyticsSaveMsg');
+      if (!targets.length) {
+        if (msgEl) msgEl.textContent = dict.pruneEmpty(threshold);
+        return;
+      }
+
+      const sampleLines = targets
+        .slice(0, 5)
+        .map(p => `${safeDecode(p.path)} (${p.views})`);
+      if (targets.length > 5) sampleLines.push(`... +${targets.length - 5}`);
+      if (!confirm(dict.confirmPrune(selectedDomain, threshold, targets.length, sampleLines.join('\n')))) return;
+
+      const btn = document.getElementById('pruneLowViewsBtn');
+      const inp = document.getElementById('pruneThresholdInput');
+      const saveBtn = document.getElementById('saveAllBtn');
+      const btnText = document.getElementById('pruneBtnText');
+      if (btn) btn.disabled = true;
+      if (inp) inp.disabled = true;
+      if (saveBtn) saveBtn.disabled = true;
+
+      let deletedTotal = 0;
+      try {
+        const keys = targets.map(p => p.key);
+        const CHUNK = 15;
+        for (let i = 0; i < keys.length; i += CHUNK) {
+          const batch = keys.slice(i, i + CHUNK);
+          if (btnText) btnText.textContent = dict.pruningBtn(Math.min(i + batch.length, keys.length), keys.length);
+          const res = await api('/api/admin/stats', { method: 'DELETE', body: JSON.stringify({ keys: batch }) });
+          deletedTotal += Number(res.data?.deleted ?? batch.length);
+        }
+        targets.forEach(p => dirtyPagePaths.delete(p.path));
+        await loadAllData();
+        const m = document.getElementById('analyticsSaveMsg');
+        if (m) m.textContent = dict.prunedMsg(deletedTotal, threshold);
+      } catch (err) {
+        const m = document.getElementById('analyticsSaveMsg');
+        if (m) m.textContent = err.message;
+      } finally {
+        const b = document.getElementById('pruneLowViewsBtn');
+        const iEl = document.getElementById('pruneThresholdInput');
+        const sEl = document.getElementById('saveAllBtn');
+        if (b) b.disabled = false;
+        if (iEl) iEl.disabled = false;
+        if (sEl) sEl.disabled = false;
+        updatePruneBtnCount();
+      }
     };
 
     window.deleteDomain = async function (domain) {

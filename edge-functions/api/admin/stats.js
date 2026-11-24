@@ -396,6 +396,29 @@ export async function onRequestDelete({ request, env }) {
       });
     }
 
+    // Batch page delete: { keys: string[] }
+    if (Array.isArray(body?.keys)) {
+      const uniqueKeys = Array.from(
+        new Set(body.keys.filter((k) => typeof k === 'string' && isPageKey(k)))
+      );
+      if (uniqueKeys.length === 0) {
+        return jsonResponse({ status: 'error', message: 'No valid page keys provided' }, 400);
+      }
+      const MAX_DELETE_KEYS = 18;
+      if (uniqueKeys.length > MAX_DELETE_KEYS) {
+        return jsonResponse(
+          { status: 'error', message: `Too many keys in a single delete batch (max ${MAX_DELETE_KEYS})` },
+          400
+        );
+      }
+      await mapConcurrent(uniqueKeys, (k) => deleteKey(store, k, 1), 5);
+      return jsonResponse({
+        status: 'success',
+        message: 'Deleted',
+        data: { deleted: uniqueKeys.length, keys: uniqueKeys },
+      });
+    }
+
     const key = body?.key;
     if (!key || typeof key !== 'string') {
       return jsonResponse({ status: 'error', message: 'Missing key or domain' }, 400);

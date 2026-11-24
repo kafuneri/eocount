@@ -107,7 +107,7 @@ export async function onRequestPut({ request, env }) {
     const store = getStorage(env);
     const now = Date.now();
 
-    // Batch domain save: { domain | domainName, site_pv, site_uv, pageViews: [{ path, page_pv | views, key }] }
+    // Batch domain save: { domain | domainName, skipSiteUpdate?, site_pv, site_uv, pageViews: [{ path, page_pv | views, key }] }
     const rawDomain = body.domain || body.domainName;
     if (rawDomain && typeof rawDomain === 'string') {
       const norm = normalizeUrl(rawDomain.includes('://') ? rawDomain : `https://${rawDomain}/`);
@@ -115,18 +115,21 @@ export async function onRequestPut({ request, env }) {
         return jsonResponse({ status: 'error', message: norm.reason }, 400);
       }
 
-      const siteKey = buildSiteKey(norm.host);
-      const existingSite = (await getJson(store, siteKey)) || {};
-      const siteData = {
-        host: norm.host,
-        site_pv: Number(body.site_pv ?? existingSite.site_pv ?? 0),
-        site_uv: Number(body.site_uv ?? existingSite.site_uv ?? 0),
-        updatedAt: now,
-      };
-      await putJson(store, siteKey, siteData);
+      if (!body.skipSiteUpdate) {
+        const siteKey = buildSiteKey(norm.host);
+        const existingSite = (await getJson(store, siteKey)) || {};
+        const siteData = {
+          host: norm.host,
+          site_pv: Number(body.site_pv ?? existingSite.site_pv ?? 0),
+          site_uv: Number(body.site_uv ?? existingSite.site_uv ?? 0),
+          ...(existingSite.daily ? { daily: existingSite.daily } : {}),
+          updatedAt: now,
+        };
+        await putJson(store, siteKey, siteData);
+      }
 
       const pageViews = Array.isArray(body.pageViews) ? body.pageViews : [];
-      const BATCH_SIZE = 15;
+      const BATCH_SIZE = 5;
       for (let i = 0; i < pageViews.length; i += BATCH_SIZE) {
         const chunk = pageViews.slice(i, i + BATCH_SIZE);
         await Promise.all(
@@ -166,6 +169,7 @@ export async function onRequestPut({ request, env }) {
           host: norm.host,
           site_pv: Number(body.site_pv ?? existing.site_pv ?? 0),
           site_uv: Number(body.site_uv ?? existing.site_uv ?? 0),
+          ...(existing.daily ? { daily: existing.daily } : {}),
           updatedAt: now,
         };
         await putJson(store, key, data);
@@ -245,15 +249,20 @@ export async function onRequestDelete({ request, env }) {
         cursor = res.complete ? undefined : res.cursor;
       } while (cursor);
 
-      const BATCH_SIZE = 15;
-      for (let i = 0; i < keys.length; i += BATCH_SIZE) {
-        await Promise.all(keys.slice(i, i + BATCH_SIZE).map((k) => deleteKey(store, k)));
+      const batch = keys.slice(0, 30);
+      const BATCH_SIZE = 5;
+      for (let i = 0; i < batch.length; i += BATCH_SIZE) {
+        await Promise.all(batch.slice(i, i + BATCH_SIZE).map((k) => deleteKey(store, k)));
       }
 
       return jsonResponse({
         status: 'success',
         message: 'Domain deleted',
-        data: { domain: body.domain, deleted: keys.length },
+        data: {
+          domain: body.domain,
+          deleted: batch.length,
+          remaining: Math.max(0, keys.length - batch.length),
+        },
       });
     }
 

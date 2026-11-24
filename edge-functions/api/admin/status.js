@@ -13,12 +13,13 @@ export async function onRequestGet({ request, env }) {
     return jsonResponse({ status: 'error', message: auth.error }, auth.status);
   }
 
-  const storeName = env?.BLOB_STORE_NAME || 'eocount-dat';
+  const storeName = env?.BLOB_STORE_NAME || 'eocount-data';
   let blobConnected = false;
   let totalSites = 0;
   let totalPages = 0;
   let totalSitePv = 0;
   let totalSiteUv = 0;
+  const pagesByHost = {};
   let blobError = null;
 
   try {
@@ -33,6 +34,10 @@ export async function onRequestGet({ request, env }) {
           siteKeys.push(k);
         } else if (isPageKey(k)) {
           totalPages++;
+          const parts = k.split('/');
+          if (parts.length >= 4 && parts[1]) {
+            pagesByHost[parts[1]] = (pagesByHost[parts[1]] || 0) + 1;
+          }
         }
       }
       cursor = res.complete ? undefined : res.cursor;
@@ -67,6 +72,7 @@ export async function onRequestGet({ request, env }) {
         totalPages,
         totalSitePv,
         totalSiteUv,
+        pagesByHost,
       },
     },
   });

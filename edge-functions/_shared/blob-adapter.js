@@ -28,7 +28,7 @@ export async function mapConcurrent(items, fn, concurrency = 8) {
 }
 
 export function getStorage(env) {
-  const storeName = env?.BLOB_STORE_NAME || 'eocount-dat';
+  const storeName = env?.BLOB_STORE_NAME || 'eocount-data';
   const options = {
     name: storeName,
     consistency: 'strong',

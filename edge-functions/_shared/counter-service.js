@@ -1,5 +1,5 @@
 /**
- * Core PV/UV counter business logic backed by EdgeOne KV.
+ * Core PV/UV counter business logic backed by EdgeOne Blob.
  */
 
 import { getJson, putJson } from './blob-adapter.js';
@@ -62,6 +62,27 @@ export async function getCounts(kv, host, path, consistency = 'strong') {
   };
 }
 
+function getTodayDateKey(nowMs) {
+  return new Date(nowMs + 8 * 3600_000).toISOString().slice(0, 10);
+}
+
+function updateDailyStats(existingDaily, todayKey) {
+  const next =
+    existingDaily && typeof existingDaily === 'object' && !Array.isArray(existingDaily)
+      ? { ...existingDaily }
+      : {};
+  next[todayKey] = Number(next[todayKey] || 0) + 1;
+
+  const keys = Object.keys(next).sort();
+  if (keys.length > 30) {
+    const pruneCount = keys.length - 30;
+    for (let i = 0; i < pruneCount; i++) {
+      delete next[keys[i]];
+    }
+  }
+  return next;
+}
+
 export async function recordVisit(kv, host, path, ip, ua, env, waitUntil = null) {
   const [pathHash16, visitorHash16] = await Promise.all([
     getPathHash16(path),
@@ -105,11 +126,14 @@ export async function recordVisit(kv, host, path, ip, ua, env, waitUntil = null)
   const nextSiteUv = baseSiteUv + (isNewVisitor ? 1 : 0);
   const nextPagePv = basePagePv + 1;
 
+  const daily = updateDailyStats(existingSite?.daily, getTodayDateKey(now));
+
   const writes = [
     putJson(kv, sKey, {
       host,
       site_pv: nextSitePv,
       site_uv: nextSiteUv,
+      daily,
       updatedAt: now,
     }),
     putJson(kv, pKey, {

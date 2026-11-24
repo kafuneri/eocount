@@ -397,6 +397,7 @@
             </a>
           </div>
 
+          <div id="overviewTrendBox" style="margin-bottom:28px;"></div>
           <h2 class="section-title" data-i18n="topPagesTitle">Top Pages</h2>
           <div id="topPagesList" class="top-list"></div>
           <div id="overviewEnvMeta" class="msg" style="margin-top:16px;"></div>
@@ -515,6 +516,9 @@
         hideTitle: '隐藏站点', unhideTitle: '取消隐藏',
         favTitle: '收藏置顶', unfavTitle: '取消收藏',
         hiddenBadge: '已隐藏', pinnedBadge: '置顶',
+        todayLabel: n => `今日 +${n}`, trendTitle: '近 30 天访问趋势', trendTotal30: n => `近 30 天共 ${n.toLocaleString()} 次`,
+        trendEmpty: '暂无每日趋势数据（新访问将自动开始累计）',
+        hiddenNote: n => `已隐藏 ${n} 个站点`,
         backupTitle: '备份与历史数据导入', includeUvLabel: '导出时包含访客去重桶', exportBtn: '一键导出文件',
         modeMax: '取较大值合并', modeOverwrite: '强制覆盖', importBtn: '执行导入',
         importDone: (i, s) => `导入完成：更新 ${i} 条，跳过 ${s} 条`, importErr: '导入失败: ', loginErr: '登录失败: ',
@@ -552,6 +556,9 @@
         hideTitle: 'Hide domain', unhideTitle: 'Unhide domain',
         favTitle: 'Pin / Favorite', unfavTitle: 'Unfavorite',
         hiddenBadge: 'Hidden', pinnedBadge: 'Pinned',
+        todayLabel: n => `+${n} today`, trendTitle: 'Last 30 Days Trend', trendTotal30: n => `${n.toLocaleString()} views in 30d`,
+        trendEmpty: 'No daily trend data yet (accumulates automatically on new visits)',
+        hiddenNote: n => `${n} hidden`,
         backupTitle: 'JSON Backup & Historical Import', includeUvLabel: 'Include UV dedup buckets on export', exportBtn: 'Export JSON',
         modeMax: 'Merge Max (Math.max)', modeOverwrite: 'Overwrite', importBtn: 'Import',
         importDone: (i, s) => `Imported ${i} entries, skipped ${s}`, importErr: 'Import failed: ', loginErr: 'Login failed: ',
@@ -574,6 +581,7 @@
     let pageSize = 10;
     let loadingPagesProgress = null; // { host, loaded, total } | null
     let showHiddenDomains = false;
+    const dirtyPagePaths = new Set();
 
     function loadStringSet(key) {
       try {
@@ -593,6 +601,7 @@
       if (favDomains.has(host)) favDomains.delete(host);
       else favDomains.add(host);
       saveDomainPrefs();
+      renderOverview();
       renderDomainsView();
       if (currentView === 'analytics') renderAnalyticsView();
     };
@@ -601,6 +610,7 @@
       if (hiddenDomains.has(host)) hiddenDomains.delete(host);
       else hiddenDomains.add(host);
       saveDomainPrefs();
+      renderOverview();
       renderDomainsView();
       if (currentView === 'analytics') renderAnalyticsView();
     };
@@ -671,11 +681,12 @@
       for (const item of allItems) {
         const host = item.host;
         if (!host) continue;
-        if (!map.has(host)) map.set(host, { name: host, sitePv: 0, siteUv: 0, pages: [] });
+        if (!map.has(host)) map.set(host, { name: host, sitePv: 0, siteUv: 0, daily: {}, pages: [] });
         const d = map.get(host);
         if (item.kind === 'site') {
           d.sitePv = Number(item.site_pv || 0);
           d.siteUv = Number(item.site_uv || 0);
+          d.daily = item.daily && typeof item.daily === 'object' ? item.daily : {};
         }
       }
       let list = Array.from(map.values());
@@ -720,7 +731,8 @@
 
     async function selectDomain(host, shouldRender = true) {
       selectedDomain = host;
-      const d = getDomainsGrouped().find(x => x.name === host);
+      dirtyPagePaths.clear();
+      const d = getDomainsGrouped(true).find(x => x.name === host);
       draftSitePv = d ? d.sitePv : 0;
       draftSiteUv = d ? d.siteUv : 0;
       pageIndex = 0;
@@ -746,22 +758,105 @@
       }
     }
 
+    function getLast30DaysKeys() {
+      const keys = [];
+      const now = Date.now();
+      for (let i = 29; i >= 0; i--) {
+        keys.push(new Date(now + 8 * 3600_000 - i * 86400_000).toISOString().slice(0, 10));
+      }
+      return keys;
+    }
+
+    function renderTrendCard(dailyMap, titleText) {
+      const dict = I18N[currentLang];
+      const days = getLast30DaysKeys();
+      const counts = days.map(day => Number(dailyMap?.[day] || 0));
+      const total30 = counts.reduce((a, b) => a + b, 0);
+      const maxVal = Math.max(1, ...counts);
+
+      if (total30 === 0) {
+        return `<div class="card" style="padding:16px 20px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span style="font-size:0.9rem;font-weight:600;">${escapeHtml(titleText)}</span>
+            <span style="font-size:0.8rem;color:var(--muted);">${dict.trendTotal30(0)}</span>
+          </div>
+          <div style="font-size:0.82rem;color:var(--muted);">${dict.trendEmpty}</div>
+        </div>`;
+      }
+
+      const w = 600, h = 92, barGap = 4;
+      const barW = (w - barGap * (days.length - 1)) / days.length;
+      const bars = days.map((day, idx) => {
+        const val = counts[idx];
+        const barH = val > 0 ? Math.max(4, Math.round((val / maxVal) * (h - 10))) : 2;
+        const x = (idx * (barW + barGap)).toFixed(1);
+        const y = h - barH;
+        const fill = val > 0 ? '#2563eb' : 'rgba(37,99,235,0.12)';
+        return `<rect x="${x}" y="${y}" width="${barW.toFixed(1)}" height="${barH}" rx="2.5" fill="${fill}"><title>${day}: ${val}</title></rect>`;
+      }).join('');
+
+      return `<div class="card" style="padding:18px 20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <span style="font-size:0.92rem;font-weight:600;">${escapeHtml(titleText)}</span>
+          <span style="font-size:0.82rem;font-weight:600;color:var(--eo-blue);">${dict.trendTotal30(total30)}</span>
+        </div>
+        <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:92px;display:block;overflow:visible;">${bars}</svg>
+        <div style="display:flex;justify-content:space-between;font-size:0.74rem;color:var(--muted);margin-top:6px;">
+          <span>${days[0].slice(5)}</span>
+          <span>${days[14].slice(5)}</span>
+          <span>${days[29].slice(5)}</span>
+        </div>
+      </div>`;
+    }
+
     function renderOverview() {
       if (!statusData) return;
       const dict = I18N[currentLang];
-      const s = statusData.summary;
-      document.getElementById('ovSitePv').textContent = Number(s.totalSitePv || 0).toLocaleString();
-      document.getElementById('ovSiteUv').textContent = Number(s.totalSiteUv || 0).toLocaleString();
-      document.getElementById('ovDomains').textContent = s.totalSites;
-      document.getElementById('ovPages').textContent = s.totalPages;
-      document.getElementById('ovSub1').textContent = dict.across(s.totalSites);
-      document.getElementById('ovSub2').textContent = dict.across(s.totalSites);
-      document.getElementById('ovSub3').textContent = dict.activeDomains(s.totalSites);
-      document.getElementById('ovSub4').textContent = dict.across(s.totalSites);
-      document.getElementById('sidebarStoreInfo').textContent = (statusData.blobConnected ? 'Blob: ' : 'Disconnected: ') + statusData.blobStoreName;
-      document.getElementById('overviewEnvMeta').textContent = dict.envMeta(statusData);
+      const allGrouped = getDomainsGrouped(true);
+      const visible = allGrouped.filter(d => !hiddenDomains.has(d.name));
+      const hiddenCount = allGrouped.length - visible.length;
 
-      const topSite = getDomainsGrouped()[0];
+      let totalPv = 0;
+      let totalUv = 0;
+      let totalPages = 0;
+      const pagesByHost = statusData.summary?.pagesByHost;
+      const mergedDaily = {};
+
+      for (const d of visible) {
+        totalPv += d.sitePv;
+        totalUv += d.siteUv;
+        if (pagesByHost) {
+          totalPages += Number(pagesByHost[d.name.replace(/:/g, '_')] || 0);
+        }
+        if (d.daily) {
+          for (const [day, val] of Object.entries(d.daily)) {
+            mergedDaily[day] = (mergedDaily[day] || 0) + Number(val || 0);
+          }
+        }
+      }
+      if (!pagesByHost) {
+        totalPages = statusData.summary?.totalPages || 0;
+      }
+
+      const todayKey = new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
+      const todayPv = Number(mergedDaily[todayKey] || 0);
+
+      document.getElementById('ovSitePv').textContent = totalPv.toLocaleString();
+      document.getElementById('ovSiteUv').textContent = totalUv.toLocaleString();
+      document.getElementById('ovDomains').textContent = visible.length;
+      document.getElementById('ovPages').textContent = totalPages;
+      document.getElementById('ovSub1').textContent = todayPv > 0 ? `${dict.across(visible.length)} · ${dict.todayLabel(todayPv)}` : dict.across(visible.length);
+      document.getElementById('ovSub2').textContent = dict.across(visible.length);
+      document.getElementById('ovSub3').textContent = dict.activeDomains(visible.length);
+      document.getElementById('ovSub4').textContent = dict.across(visible.length);
+      document.getElementById('sidebarStoreInfo').textContent = (statusData.blobConnected ? 'Blob: ' : 'Disconnected: ') + statusData.blobStoreName;
+      document.getElementById('overviewEnvMeta').textContent =
+        dict.envMeta(statusData) + (hiddenCount > 0 ? ` | ${dict.hiddenNote(hiddenCount)}` : '');
+
+      const trendBox = document.getElementById('overviewTrendBox');
+      if (trendBox) trendBox.innerHTML = renderTrendCard(mergedDaily, dict.trendTitle);
+
+      const topSite = visible[0];
       const topPages = topSite ? (domainPagesCache.get(topSite.name) || []).slice(0, 5) : [];
       const topEl = document.getElementById('topPagesList');
       topEl.innerHTML = topPages.length
@@ -878,6 +973,7 @@
       if (pageIndex >= totalPages) pageIndex = totalPages - 1;
       const slice = filtered.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize);
 
+      const curDomainObj = domains.find(d => d.name === selectedDomain);
       document.getElementById('analyticsBody').innerHTML = `
         <div class="page-header" style="margin-bottom:18px;">
           <h2 style="font-size:1.3rem;font-weight:700;">${escapeHtml(selectedDomain)}</h2>
@@ -898,6 +994,7 @@
             <input type="number" min="0" value="${draftSiteUv}" style="width:100%;" oninput="draftSiteUv=Math.max(0,parseInt(this.value||0,10));document.getElementById('liveUvDisplay').textContent=draftSiteUv.toLocaleString()" />
           </div>
         </div>
+        ${renderTrendCard(curDomainObj?.daily || {}, dict.trendTitle)}
 
         <div class="section-label">${dict.pageAnalyticsLabel} <span style="font-weight:400;text-transform:none;">${dict.pagesSuffix(draftPages.length)}</span></div>
         <div class="table-toolbar">
@@ -1016,7 +1113,10 @@
 
     window.updateDraftPageByIdx = function (idx, val) {
       const item = currentPageSlice[idx];
-      if (item) item.views = Math.max(0, parseInt(val || 0, 10));
+      if (item) {
+        item.views = Math.max(0, parseInt(val || 0, 10));
+        dirtyPagePaths.add(item.path);
+      }
     };
 
     window.openPageByIdx = function (idx) {
@@ -1052,15 +1152,30 @@
       btn.disabled = true;
       btn.textContent = dict.savingBtn;
       try {
+        const dirtyPages = draftPages
+          .filter(p => dirtyPagePaths.has(p.path))
+          .map(p => ({ key: p.key, path: p.path, page_pv: p.views }));
+        const CHUNK = 20;
         await api('/api/admin/stats', {
           method: 'PUT',
           body: JSON.stringify({
             domain: selectedDomain,
             site_pv: draftSitePv,
             site_uv: draftSiteUv,
-            pageViews: draftPages.map(p => ({ key: p.key, path: p.path, page_pv: p.views })),
+            pageViews: dirtyPages.slice(0, CHUNK),
           }),
         });
+        for (let i = CHUNK; i < dirtyPages.length; i += CHUNK) {
+          await api('/api/admin/stats', {
+            method: 'PUT',
+            body: JSON.stringify({
+              domain: selectedDomain,
+              skipSiteUpdate: true,
+              pageViews: dirtyPages.slice(i, i + CHUNK),
+            }),
+          });
+        }
+        dirtyPagePaths.clear();
         await loadAllData();
         selectDomain(selectedDomain, true);
         const m = document.getElementById('analyticsSaveMsg');
@@ -1111,7 +1226,11 @@
 
     window.deleteDomain = async function (domain) {
       if (!confirm(I18N[currentLang].confirmDelDomain(domain))) return;
-      await api('/api/admin/stats', { method: 'DELETE', body: JSON.stringify({ domain }) });
+      let remaining = 1;
+      while (remaining > 0) {
+        const res = await api('/api/admin/stats', { method: 'DELETE', body: JSON.stringify({ domain }) });
+        remaining = Number(res.data?.remaining || 0);
+      }
       if (selectedDomain === domain) selectedDomain = null;
       await loadAllData();
       renderDomainsView();

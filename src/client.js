@@ -89,19 +89,38 @@
     }
   }
 
-  async function runCounter() {
-    var data = await fetchCounterData();
-    if (data) {
-      updateDom(data);
-      setCachedData(data);
-      return data;
+  var inFlight = false;
+  var lastAutoUrl = '';
+  var lastAutoAt = 0;
+
+  async function runCounter(force) {
+    var currentUrl = window.location.href;
+    if (inFlight) return null;
+    if (!force && currentUrl === lastAutoUrl && Date.now() - lastAutoAt < 1500) {
+      return getCachedData();
     }
-    var cached = getCachedData();
-    if (cached) {
-      updateDom(cached);
-      return cached;
+
+    inFlight = true;
+    try {
+      var data = await fetchCounterData();
+      if (data) {
+        updateDom(data);
+        setCachedData(data);
+        if (!force) {
+          lastAutoUrl = currentUrl;
+          lastAutoAt = Date.now();
+        }
+        return data;
+      }
+      var cached = getCachedData();
+      if (cached) {
+        updateDom(cached);
+        return cached;
+      }
+      return null;
+    } finally {
+      inFlight = false;
     }
-    return null;
   }
 
   function onReady(fn) {
@@ -112,10 +131,16 @@
     }
   }
 
-  window.eocountFetch = runCounter;
-  window.vercountFetch = runCounter;
-  document.addEventListener('pjax:complete', runCounter);
-  document.addEventListener('astro:page-load', runCounter);
+  function autoRun() {
+    runCounter(false);
+  }
 
-  onReady(runCounter);
+  window.eocountFetch = function () {
+    return runCounter(true);
+  };
+  window.vercountFetch = window.eocountFetch;
+  document.addEventListener('pjax:complete', autoRun);
+  document.addEventListener('astro:page-load', autoRun);
+
+  onReady(autoRun);
 })();

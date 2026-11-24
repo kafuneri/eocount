@@ -2,7 +2,8 @@
  * Single-admin stateless authentication using Web Crypto HMAC-SHA256 cookies.
  */
 
-const COOKIE_NAME = 'eo_vc_session';
+const COOKIE_NAME = 'eocount_session';
+const LEGACY_COOKIE_NAME = 'eo_vc_session';
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 function timingSafeEqual(a, b) {
@@ -118,7 +119,7 @@ export async function requireAdmin(request, env) {
   }
 
   const cookies = parseCookies(request.headers.get('cookie'));
-  const token = cookies[COOKIE_NAME];
+  const token = cookies[COOKIE_NAME] || cookies[LEGACY_COOKIE_NAME];
   if (!token || !token.includes('.')) {
     return { ok: false, status: 401, error: 'Unauthorized' };
   }

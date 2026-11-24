@@ -14,6 +14,10 @@ export async function onRequestGet({ request, env }) {
   }
 
   const storeName = env?.BLOB_STORE_NAME || 'eocount-data';
+  const url = new URL(request.url);
+  const includeSiteStats = url.searchParams.get('includeSiteStats') !== 'false';
+  const initialCursor = url.searchParams.get('cursor') || undefined;
+
   let blobConnected = false;
   let totalSites = 0;
   let totalPages = 0;
@@ -21,14 +25,22 @@ export async function onRequestGet({ request, env }) {
   let totalSiteUv = 0;
   const pagesByHost = {};
   let blobError = null;
+  let truncated = false;
+  let siteStatsTruncated = false;
+  let nextCursor = null;
 
   try {
     const store = getStorage(env);
+    const MAX_OPS = 20;
+    const maxListCalls = includeSiteStats ? 10 : 20;
 
     const siteKeys = [];
-    let cursor = undefined;
+    let cursor = initialCursor;
+    let listCalls = 0;
+
     do {
-      const res = await listKeys(store, { prefix: 'sites/', cursor, limit: 100 });
+      const res = await listKeys(store, { prefix: 'sites/', cursor, retries: 1 });
+      listCalls++;
       for (const k of res.keys) {
         if (isSiteKey(k)) {
           siteKeys.push(k);
@@ -40,16 +52,29 @@ export async function onRequestGet({ request, env }) {
           }
         }
       }
-      cursor = res.complete ? undefined : res.cursor;
-    } while (cursor);
+      cursor = !res.complete && res.cursor ? res.cursor : undefined;
+    } while (cursor && listCalls < maxListCalls);
 
+    truncated = Boolean(cursor);
+    nextCursor = truncated ? cursor : null;
     blobConnected = true;
     totalSites = siteKeys.length;
-    const siteObjects = await mapConcurrent(siteKeys, (k) => getJson(store, k), 8);
-    for (const item of siteObjects) {
-      if (item) {
-        totalSitePv += Number(item.site_pv || 0);
-        totalSiteUv += Number(item.site_uv || 0);
+
+    if (includeSiteStats && siteKeys.length > 0) {
+      const remainingBudget = Math.max(0, MAX_OPS - listCalls);
+      const keysToFetch = siteKeys.slice(0, remainingBudget);
+      siteStatsTruncated = siteKeys.length > keysToFetch.length;
+
+      const siteObjects = await mapConcurrent(
+        keysToFetch,
+        (k) => getJson(store, k, 'strong', 1),
+        5
+      );
+      for (const item of siteObjects) {
+        if (item) {
+          totalSitePv += Number(item.site_pv || 0);
+          totalSiteUv += Number(item.site_uv || 0);
+        }
       }
     }
   } catch (err) {
@@ -73,6 +98,9 @@ export async function onRequestGet({ request, env }) {
         totalSitePv,
         totalSiteUv,
         pagesByHost,
+        nextCursor,
+        truncated,
+        siteStatsTruncated,
       },
     },
   });

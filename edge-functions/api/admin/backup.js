@@ -17,6 +17,10 @@ import {
   putJson,
 } from '../../_shared/blob-adapter.js';
 
+function matchesBackupKey(key, includeUv) {
+  return isSiteKey(key) || isPageKey(key) || (includeUv && isUvKey(key));
+}
+
 export function onRequestOptions() {
   return corsPreflightResponse();
 }
@@ -30,25 +34,92 @@ export async function onRequestGet({ request, env }) {
   try {
     const store = getStorage(env);
     const url = new URL(request.url);
+    const MAX_OPS = 20;
+    const MAX_LIMIT = 19;
+    const MAX_LIST_CALLS = 8;
+    const MAX_LEGACY_LIST_CALLS = 6;
+
     const includeUv = url.searchParams.get('includeUv') === 'true';
     const offset = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10) || 0);
-    const limit = Math.min(50, Math.max(1, parseInt(url.searchParams.get('limit') || '30', 10) || 30));
+    const limit = Math.min(
+      MAX_LIMIT,
+      Math.max(1, parseInt(url.searchParams.get('limit') || String(MAX_LIMIT), 10) || MAX_LIMIT)
+    );
+    const useCursor = url.searchParams.get('paginate') === 'cursor' || url.searchParams.has('cursor');
+    const reqCursor = url.searchParams.get('cursor') || undefined;
+
+    if (useCursor) {
+      const matchedKeys = [];
+      let cursor = reqCursor;
+      let listCalls = 0;
+      let done = false;
+
+      while (listCalls < MAX_LIST_CALLS) {
+        const targetCount = Math.min(limit, MAX_OPS - (listCalls + 1));
+        const need = targetCount - matchedKeys.length;
+        if (need <= 0) break;
+
+        const res = await listKeys(store, { prefix: 'sites/', cursor, limit: need, retries: 1 });
+        listCalls++;
+        for (const k of res.keys) {
+          if (matchesBackupKey(k, includeUv)) {
+            matchedKeys.push(k);
+          }
+        }
+        if (res.complete || !res.cursor) {
+          cursor = null;
+          done = true;
+          break;
+        }
+        cursor = res.cursor;
+      }
+
+      const values = await mapConcurrent(matchedKeys, (k) => getJson(store, k, 'strong', 1), 5);
+      const entries = {};
+      for (let i = 0; i < matchedKeys.length; i++) {
+        if (values[i] !== null) {
+          entries[matchedKeys[i]] = values[i];
+        }
+      }
+
+      return jsonResponse({
+        status: 'success',
+        data: {
+          exportedAt: new Date().toISOString(),
+          version: 2,
+          total: null,
+          nextOffset: null,
+          nextCursor: done ? null : cursor,
+          count: Object.keys(entries).length,
+          entries,
+        },
+      });
+    }
 
     const allKeys = [];
     let cursor = undefined;
-    do {
-      const res = await listKeys(store, { prefix: 'sites/', cursor, limit: 100 });
+    let listCalls = 0;
+
+    while (listCalls < MAX_LEGACY_LIST_CALLS) {
+      const res = await listKeys(store, { prefix: 'sites/', cursor, retries: 1 });
+      listCalls++;
       for (const k of res.keys) {
-        if (isSiteKey(k) || isPageKey(k) || (includeUv && isUvKey(k))) {
+        if (matchesBackupKey(k, includeUv)) {
           allKeys.push(k);
         }
       }
-      cursor = res.complete ? undefined : res.cursor;
-    } while (cursor);
+      if (res.complete || !res.cursor) {
+        cursor = undefined;
+        break;
+      }
+      cursor = res.cursor;
+    }
 
-    const pagedKeys = allKeys.slice(offset, offset + limit);
-    const nextOffset = offset + limit < allKeys.length ? offset + limit : null;
-    const values = await mapConcurrent(pagedKeys, (k) => getJson(store, k), 5);
+    const truncated = Boolean(cursor);
+    const effectiveLimit = Math.min(limit, Math.max(1, MAX_OPS - listCalls));
+    const pagedKeys = allKeys.slice(offset, offset + effectiveLimit);
+    const nextOffset = offset + pagedKeys.length < allKeys.length ? offset + pagedKeys.length : null;
+    const values = await mapConcurrent(pagedKeys, (k) => getJson(store, k, 'strong', 1), 5);
     const entries = {};
     for (let i = 0; i < pagedKeys.length; i++) {
       if (values[i] !== null) {
@@ -63,6 +134,8 @@ export async function onRequestGet({ request, env }) {
         version: 2,
         total: allKeys.length,
         nextOffset,
+        nextCursor: null,
+        truncated,
         count: Object.keys(entries).length,
         entries,
       },
@@ -140,17 +213,15 @@ export async function onRequestPost({ request, env }) {
     }
 
     const entriesList = Object.entries(entriesToWrite);
-    const BATCH_SIZE = 5;
-
-    async function withRetry(fn, retries = 2) {
-      for (let attempt = 0; attempt <= retries; attempt++) {
-        try {
-          return await fn();
-        } catch (err) {
-          if (attempt === retries) throw err;
-          await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
-        }
-      }
+    const MAX_ENTRIES = mode === 'overwrite' ? 18 : 9;
+    if (entriesList.length > MAX_ENTRIES) {
+      return jsonResponse(
+        {
+          status: 'error',
+          message: `Too many entries in a single import batch (${entriesList.length} > max ${MAX_ENTRIES} for mode "${mode}")`,
+        },
+        400
+      );
     }
 
     async function processEntry([key, incoming]) {
@@ -160,14 +231,14 @@ export async function onRequestPost({ request, env }) {
       }
 
       if (mode === 'overwrite') {
-        await withRetry(() => putJson(store, key, { ...incoming, updatedAt: now }));
+        await putJson(store, key, { ...incoming, updatedAt: now }, 1);
         imported++;
         return;
       }
 
-      const existing = await withRetry(() => getJson(store, key));
+      const existing = await getJson(store, key, 'strong', 1);
       if (!existing) {
-        await withRetry(() => putJson(store, key, { ...incoming, updatedAt: now }));
+        await putJson(store, key, { ...incoming, updatedAt: now }, 1);
         imported++;
         return;
       }
@@ -176,13 +247,18 @@ export async function onRequestPost({ request, env }) {
         const mergedPv = Math.max(Number(existing.site_pv || 0), Number(incoming.site_pv || 0));
         const mergedUv = Math.max(Number(existing.site_uv || 0), Number(incoming.site_uv || 0));
         if (mergedPv > Number(existing.site_pv || 0) || mergedUv > Number(existing.site_uv || 0)) {
-          await withRetry(() => putJson(store, key, {
-            ...existing,
-            host: incoming.host || existing.host,
-            site_pv: mergedPv,
-            site_uv: mergedUv,
-            updatedAt: now,
-          }));
+          await putJson(
+            store,
+            key,
+            {
+              ...existing,
+              host: incoming.host || existing.host,
+              site_pv: mergedPv,
+              site_uv: mergedUv,
+              updatedAt: now,
+            },
+            1
+          );
           imported++;
         } else {
           skipped++;
@@ -190,13 +266,18 @@ export async function onRequestPost({ request, env }) {
       } else if (isPageKey(key)) {
         const mergedPv = Math.max(Number(existing.page_pv || 0), Number(incoming.page_pv || 0));
         if (mergedPv > Number(existing.page_pv || 0)) {
-          await withRetry(() => putJson(store, key, {
-            ...existing,
-            host: incoming.host || existing.host,
-            path: incoming.path || existing.path,
-            page_pv: mergedPv,
-            updatedAt: now,
-          }));
+          await putJson(
+            store,
+            key,
+            {
+              ...existing,
+              host: incoming.host || existing.host,
+              path: incoming.path || existing.path,
+              page_pv: mergedPv,
+              updatedAt: now,
+            },
+            1
+          );
           imported++;
         } else {
           skipped++;
@@ -206,12 +287,17 @@ export async function onRequestPost({ request, env }) {
         const nextHashes = Array.isArray(incoming.hashes) ? incoming.hashes : [];
         const merged = Array.from(new Set([...prevHashes, ...nextHashes]));
         if (merged.length > prevHashes.length) {
-          await withRetry(() => putJson(store, key, {
-            ...existing,
-            host: incoming.host || existing.host,
-            hashes: merged,
-            updatedAt: now,
-          }));
+          await putJson(
+            store,
+            key,
+            {
+              ...existing,
+              host: incoming.host || existing.host,
+              hashes: merged,
+              updatedAt: now,
+            },
+            1
+          );
           imported++;
         } else {
           skipped++;
@@ -219,9 +305,7 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
-    for (let i = 0; i < entriesList.length; i += BATCH_SIZE) {
-      await Promise.all(entriesList.slice(i, i + BATCH_SIZE).map(processEntry));
-    }
+    await mapConcurrent(entriesList, processEntry, 5);
 
     return jsonResponse({
       status: 'success',

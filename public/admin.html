@@ -707,16 +707,68 @@
       return list;
     }
 
+    async function fetchStatus() {
+      let cursor = null;
+      let baseData = null;
+      const mergedPagesByHost = {};
+      let totalSites = 0;
+      let totalPages = 0;
+
+      do {
+        const qs = new URLSearchParams({ includeSiteStats: 'false' });
+        if (cursor) qs.set('cursor', cursor);
+        const res = await api('/api/admin/status?' + qs.toString());
+        const d = res.data;
+        if (!baseData) baseData = d;
+        const summary = d.summary || {};
+        totalSites += Number(summary.totalSites || 0);
+        totalPages += Number(summary.totalPages || 0);
+        if (summary.pagesByHost) {
+          for (const [host, count] of Object.entries(summary.pagesByHost)) {
+            mergedPagesByHost[host] = (mergedPagesByHost[host] || 0) + Number(count || 0);
+          }
+        }
+        cursor = summary.nextCursor || null;
+      } while (cursor);
+
+      return {
+        ...baseData,
+        summary: {
+          ...(baseData?.summary || {}),
+          totalSites,
+          totalPages,
+          pagesByHost: mergedPagesByHost,
+        },
+      };
+    }
+
     async function fetchStatsPaged(params, onProgress) {
       const collected = [];
-      let offset = 0;
-      while (offset !== null) {
-        const qs = new URLSearchParams({ ...params, offset: String(offset), limit: '30' }).toString();
-        const res = await api('/api/admin/stats?' + qs);
-        collected.push(...(res.data.items || []));
-        if (onProgress) onProgress(collected.length, res.data.total ?? collected.length);
-        offset = res.data.nextOffset ?? null;
+      if (params.type === 'site') {
+        let offset = 0;
+        while (offset !== null) {
+          const qs = new URLSearchParams({ ...params, offset: String(offset), limit: '19' }).toString();
+          const res = await api('/api/admin/stats?' + qs);
+          collected.push(...(res.data.items || []));
+          if (onProgress) onProgress(collected.length, res.data.total ?? collected.length);
+          offset = res.data.nextOffset ?? null;
+        }
+        return collected;
       }
+
+      const knownTotal = params.host
+        ? Number(statusData?.summary?.pagesByHost?.[params.host.replace(/:/g, '_')] || 0)
+        : 0;
+      let cursor = null;
+      do {
+        const qsObj = { ...params, paginate: 'cursor', limit: '19' };
+        if (cursor) qsObj.cursor = cursor;
+        const res = await api('/api/admin/stats?' + new URLSearchParams(qsObj).toString());
+        collected.push(...(res.data.items || []));
+        const totalHint = res.data.total ?? (knownTotal > 0 ? Math.max(knownTotal, collected.length) : 0);
+        if (onProgress) onProgress(collected.length, totalHint);
+        cursor = res.data.nextCursor ?? null;
+      } while (cursor);
       return collected;
     }
 
@@ -1157,7 +1209,7 @@
         const dirtyPages = draftPages
           .filter(p => dirtyPagePaths.has(p.path))
           .map(p => ({ key: p.key, path: p.path, page_pv: p.views }));
-        const CHUNK = 20;
+        const CHUNK = 15;
         await api('/api/admin/stats', {
           method: 'PUT',
           body: JSON.stringify({
@@ -1240,11 +1292,11 @@
 
     async function loadAllData() {
       domainPagesCache.clear();
-      const [sRes, sites] = await Promise.all([
-        api('/api/admin/status'),
+      const [sData, sites] = await Promise.all([
+        fetchStatus(),
         fetchStatsPaged({ type: 'site' }),
       ]);
-      statusData = sRes.data;
+      statusData = sData;
       allItems = sites;
       renderOverview();
 
@@ -1311,15 +1363,21 @@
       const includeUv = document.getElementById('exportIncludeUv').checked;
       const msg = document.getElementById('backupMsg');
       const allEntries = {};
-      let offset = 0;
+      let cursor = null;
       let exportedAt = new Date().toISOString();
-      while (offset !== null) {
-        const res = await api(`/api/admin/backup?includeUv=${includeUv}&offset=${offset}&limit=30`);
+      do {
+        const qs = new URLSearchParams({
+          includeUv: String(includeUv),
+          paginate: 'cursor',
+          limit: '19',
+        });
+        if (cursor) qs.set('cursor', cursor);
+        const res = await api('/api/admin/backup?' + qs.toString());
         Object.assign(allEntries, res.data.entries || {});
         exportedAt = res.data.exportedAt || exportedAt;
-        msg.textContent = `${Object.keys(allEntries).length} / ${res.data.total || Object.keys(allEntries).length} ...`;
-        offset = res.data.nextOffset ?? null;
-      }
+        msg.textContent = `${Object.keys(allEntries).length} ...`;
+        cursor = res.data.nextCursor || null;
+      } while (cursor);
       msg.textContent = '';
       const payload = { exportedAt, version: 2, count: Object.keys(allEntries).length, entries: allEntries };
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -1339,15 +1397,15 @@
       try {
         const parsed = JSON.parse(document.getElementById('importJson').value);
         const mode = document.getElementById('importMode').value;
-        const CHUNK_SIZE = 20;
         let totalImported = 0;
         let totalSkipped = 0;
 
         if (Array.isArray(parsed.items)) {
           const items = parsed.items;
-          for (let i = 0; i < items.length; i += CHUNK_SIZE) {
-            const chunk = items.slice(i, i + CHUNK_SIZE);
-            msg.textContent = `${Math.min(i + CHUNK_SIZE, items.length)} / ${items.length} ...`;
+          const itemsChunk = mode === 'overwrite' ? 9 : 4;
+          for (let i = 0; i < items.length; i += itemsChunk) {
+            const chunk = items.slice(i, i + itemsChunk);
+            msg.textContent = `${Math.min(i + itemsChunk, items.length)} / ${items.length} ...`;
             const res = await api('/api/admin/backup', { method: 'POST', body: JSON.stringify({ items: chunk, mode }) });
             totalImported += res.data.imported || 0;
             totalSkipped += res.data.skipped || 0;
@@ -1355,10 +1413,11 @@
         } else {
           const rawEntries = parsed.entries || parsed.data?.entries || {};
           const keys = Object.keys(rawEntries);
-          for (let i = 0; i < keys.length; i += CHUNK_SIZE) {
+          const entriesChunk = mode === 'overwrite' ? 18 : 9;
+          for (let i = 0; i < keys.length; i += entriesChunk) {
             const chunkEntries = {};
-            for (const k of keys.slice(i, i + CHUNK_SIZE)) chunkEntries[k] = rawEntries[k];
-            msg.textContent = `${Math.min(i + CHUNK_SIZE, keys.length)} / ${keys.length} ...`;
+            for (const k of keys.slice(i, i + entriesChunk)) chunkEntries[k] = rawEntries[k];
+            msg.textContent = `${Math.min(i + entriesChunk, keys.length)} / ${keys.length} ...`;
             const res = await api('/api/admin/backup', { method: 'POST', body: JSON.stringify({ entries: chunkEntries, mode }) });
             totalImported += res.data.imported || 0;
             totalSkipped += res.data.skipped || 0;

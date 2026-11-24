@@ -649,13 +649,11 @@
       });
       switchView(currentView);
       if (statusData) renderOverview();
-      renderDomainsView();
-      renderAnalyticsView();
+      if (currentView === 'domains') renderDomainsView();
     }
 
     window.switchView = function (view, domainToSelect) {
       currentView = view;
-      if (domainToSelect) selectDomain(domainToSelect, false);
       ['overview', 'domains', 'analytics', 'backup'].forEach(v => {
         document.getElementById('view-' + v).classList.toggle('hidden', v !== view);
       });
@@ -673,7 +671,10 @@
         cur.textContent = map[view] || view;
       }
       if (view === 'domains') renderDomainsView();
-      if (view === 'analytics') renderAnalyticsView();
+      if (view === 'analytics') {
+        if (domainToSelect) selectDomain(domainToSelect, true);
+        else renderAnalyticsView();
+      }
     };
 
     function getDomainsGrouped(includeHidden = false) {
@@ -949,7 +950,8 @@
       }
 
       if (!selectedDomain || !domains.some(d => d.name === selectedDomain)) {
-        selectDomain(domains[0].name, false);
+        selectDomain(domains[0].name, true);
+        return;
       }
 
       pillsEl.innerHTML = domains.map(d => `
